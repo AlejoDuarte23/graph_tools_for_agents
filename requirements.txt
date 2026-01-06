@@ -128,3 +128,4 @@ urllib3==2.6.2
     #   types-requests
 uvicorn==0.40.0 ; sys_platform != 'emscripten'
     # via mcp
+viktor==14.26.0
