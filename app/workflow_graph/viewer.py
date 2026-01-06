@@ -76,14 +76,25 @@ class WorkflowViewer:
 </html>
 """
 
-    def write(self, out_path: Path | str | None = None) -> Path:
-        path = (
-            Path(out_path) if out_path is not None else (self.root_dir / "index.html")
-        )
-        path.write_text(self.render_html(), encoding="utf-8")
-        return path
+    def write(self, out_path: Path | str | None = None) -> str:
+        """Generate and return the HTML string without writing to disk."""
+        return self.render_html()
 
     def show(self, out_path: Path | str | None = None) -> Path:
-        path = self.write(out_path)
+        """Generate HTML and open in browser via temporary file."""
+        import tempfile
+
+        html_content = self.render_html()
+
+        if out_path is not None:
+            path = Path(out_path)
+            path.write_text(html_content, encoding="utf-8")
+        else:
+            # Create a temporary file
+            fd, temp_path = tempfile.mkstemp(suffix=".html", text=True)
+            with open(fd, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            path = Path(temp_path)
+
         webbrowser.open_new_tab(path.resolve().as_uri())
         return path

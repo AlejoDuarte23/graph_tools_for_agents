@@ -77,16 +77,7 @@ async def create_dummy_workflow_node_func(
     args: str,
 ) -> str:
     payload = DummyWorkflowNode.model_validate_json(args)
-
-    output_dir = Path.cwd() / "workflow_graph" / "generated_nodes"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    output_path = output_dir / f"{payload.node_id}.json"
-    output_path.write_text(
-        json.dumps(payload.model_dump(), indent=2),
-        encoding="utf-8",
-    )
-    return str(output_path)
+    return f"Node '{payload.node_id}' ({payload.node_type}) created successfully."
 
 
 def create_dummy_workflow_node_tool() -> Any:
@@ -175,16 +166,11 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
         ]
     )
 
-    out_dir = Path.cwd() / payload.output_dir / payload.workflow_name
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    html_path = out_dir / "index.html"
     viewer = WorkflowViewer(
         lambda: workflow,
         root_dir=Path(__file__).resolve().parent / "workflow_graph",
     )
-    html_content = viewer.render_html()
-    viewer.write(html_path)
+    html_content = viewer.write()  # Returns HTML string
 
     # Store HTML in VIKTOR storage for WebView access
     try:
@@ -205,24 +191,18 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
         # Ignore if not running in VIKTOR context
         pass
 
+    # Optionally write workflow JSON for debugging
     json_path: Path | None = None
     if payload.write_workflow_json:
+        out_dir = Path.cwd() / payload.output_dir / payload.workflow_name
+        out_dir.mkdir(parents=True, exist_ok=True)
         json_path = out_dir / "workflow.json"
         json_path.write_text(
             json.dumps(workflow.model_dump(), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
 
-    return json.dumps(
-        {
-            "workflow_name": payload.workflow_name,
-            "html_path": str(html_path),
-            "workflow_json_path": str(json_path) if json_path else None,
-            "node_count": len(payload.nodes),
-            "edge_count": len(edges),
-        },
-        indent=2,
-    )
+    return f"Workflow '{payload.workflow_name}' created successfully with {len(payload.nodes)} nodes and {len(edges)} connections. The workflow graph has been updated and is now visible in the Workflow Graph view on the right side."
 
 
 def compose_workflow_graph_tool() -> Any:

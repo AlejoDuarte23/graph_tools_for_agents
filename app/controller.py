@@ -65,7 +65,7 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             defined together. Set proper depends_on relationships between nodes.
             """
         ),
-        model="gpt-4o",
+        model="gpt-5-mini",
         tools=get_dummy_tools(),
     )
 
