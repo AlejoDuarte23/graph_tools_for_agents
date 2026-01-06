@@ -1,0 +1,131 @@
+:root {
+  --node-w: 300px;
+  --node-h: 64px;
+  --edge-w: 8px;
+  --gap-x: 60px;
+  --gap-y: 120px;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: #111;
+  overflow: hidden;
+}
+
+body {
+  background:
+    radial-gradient(circle at 1px 1px, rgba(0,0,0,0.10) 1px, transparent 1px) 0 0 / 16px 16px,
+    #f7f7f7;
+}
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+#stage {
+  position: relative;
+  overflow: hidden;
+}
+
+#edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#nodes {
+  position: absolute;
+  inset: 0;
+}
+
+.node {
+  position: absolute;
+  width: var(--node-w);
+  height: var(--node-h);
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.10);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.node:active { cursor: grabbing; }
+
+.node.active {
+  outline: 3px solid rgba(0,0,0,0.25);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  border: 1px solid rgba(0,0,0,0.10);
+  flex: 0 0 auto;
+}
+
+.title {
+  font-size: 20px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+aside {
+  background: rgba(255,255,255,0.9);
+  border-left: 1px solid rgba(0,0,0,0.08);
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.panel-title {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: rgba(0,0,0,0.65);
+  margin: 0 0 10px 0;
+}
+
+button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+button:hover { background: rgba(0,0,0,0.03); }
+
+.hint {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(0,0,0,0.65);
+  line-height: 1.35;
+}
+
+#log {
+  margin-top: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 240px;
+  white-space: pre-wrap;
+}

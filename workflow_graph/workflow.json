@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "id": "geometry",
+      "title": "Geometry Generation App",
+      "type": "geometry",
+      "depends_on": []
+    },
+    {
+      "id": "seismic",
+      "title": "Seismic Analysis App",
+      "type": "seismic",
+      "depends_on": [
+        {
+          "node_id": "geometry",
+          "kind": "default"
+        }
+      ]
+    },
+    {
+      "id": "wind",
+      "title": "Wind Load Analysis App",
+      "type": "wind",
+      "depends_on": [
+        {
+          "node_id": "geometry",
+          "kind": "default"
+        }
+      ]
+    },
+    {
+      "id": "structural",
+      "title": "Structural Analysis App",
+      "type": "structural",
+      "depends_on": [
+        {
+          "node_id": "seismic",
+          "kind": "default"
+        },
+        {
+          "node_id": "wind",
+          "kind": "default"
+        }
+      ]
+    },
+    {
+      "id": "footing_cap",
+      "title": "Footing Capacities",
+      "type": "footing_cap",
+      "depends_on": []
+    },
+    {
+      "id": "footing_design",
+      "title": "Footing Design",
+      "type": "footing_design",
+      "depends_on": [
+        {
+          "node_id": "structural",
+          "kind": "default"
+        },
+        {
+          "node_id": "footing_cap",
+          "kind": "default"
+        }
+      ]
+    }
+  ]
+}
