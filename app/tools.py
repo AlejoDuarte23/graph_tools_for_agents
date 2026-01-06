@@ -160,8 +160,8 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
     if not toposort_edges(ids, edges):
         raise ValueError("Cycle detected in depends_on; workflow_graph expects a DAG.")
 
-    from workflow_graph.models import Connection, Node, Workflow
-    from workflow_graph.viewer import WorkflowViewer
+    from app.workflow_graph.models import Connection, Node, Workflow
+    from app.workflow_graph.viewer import WorkflowViewer
 
     workflow = Workflow(
         nodes=[
@@ -179,7 +179,10 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     html_path = out_dir / "index.html"
-    viewer = WorkflowViewer(lambda: workflow, root_dir=Path.cwd() / "workflow_graph")
+    viewer = WorkflowViewer(
+        lambda: workflow,
+        root_dir=Path(__file__).resolve().parent / "workflow_graph",
+    )
     viewer.write(html_path)
 
     json_path: Path | None = None

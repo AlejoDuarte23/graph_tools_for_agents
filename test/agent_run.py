@@ -3,7 +3,7 @@ from textwrap import dedent
 
 from agents import Agent, Runner
 from dotenv import load_dotenv
-from tools import get_dummy_tools
+from app.tools import get_dummy_tools
 
 load_dotenv()
 agent = Agent(

@@ -13,7 +13,7 @@ class WorkflowViewer:
         root_dir: Path | None = None,
     ) -> None:
         self._workflow_factory = workflow_factory
-        self._root_dir = root_dir or Path(__file__).resolve().parent
+        self._root_dir = root_dir or Path().cwd()
 
     @property
     def root_dir(self) -> Path:
