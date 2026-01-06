@@ -131,6 +131,13 @@ class Controller(vkt.Controller):
     @vkt.WebView("Workflow Graph", width=100)
     def workflow_view(self, params, **kwargs) -> vkt.WebResult:
         """Display the generated workflow graph."""
+        # Clear storage when chat is reset
+        if not params.chat:
+            try:
+                vkt.Storage().delete("workflow_html", scope="entity")
+            except Exception:
+                pass
+
         try:
             stored_file = vkt.Storage().get("workflow_html", scope="entity")
             if stored_file:
@@ -143,36 +150,5 @@ class Controller(vkt.Controller):
             pass
 
         # Default placeholder when no workflow exists
-        placeholder_html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                }
-                .container {
-                    text-align: center;
-                    padding: 2rem;
-                }
-                h1 { font-size: 2rem; margin-bottom: 1rem; }
-                p { font-size: 1.1rem; opacity: 0.9; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🔧 Workflow Graph Viewer</h1>
-                <p>Use the chat to create a workflow graph.</p>
-                <p>Try: "Create a structural analysis workflow with wind and seismic loads"</p>
-            </div>
-        </body>
-        </html>
-        """
+        placeholder_html = "<!DOCTYPE html><html><head><style>body { margin: 0; background-color: white; }</style></head><body></body></html>"
         return vkt.WebResult(html=placeholder_html)
