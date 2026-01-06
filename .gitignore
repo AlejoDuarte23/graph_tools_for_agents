@@ -14,3 +14,4 @@ wheels/
 
 # Generated visualization output
 workflow_graph/index.html
+workflow_graph/generated_workflows

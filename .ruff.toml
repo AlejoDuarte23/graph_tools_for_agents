@@ -23,6 +23,7 @@ exclude = [
     "*.ipynb",
 ]
 
+
 # Same as Black.
 line-length = 88
 output-format = "grouped"
@@ -46,6 +47,7 @@ ignore = [
   # mutable defaults
   "B006",
   "B018",
+  "ARG001",
 ]
 
 unfixable = [
