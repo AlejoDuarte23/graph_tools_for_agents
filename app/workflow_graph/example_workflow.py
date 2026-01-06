@@ -1,4 +1,4 @@
-from workflow_graph.models import Connection, Node, Workflow
+from app.workflow_graph.models import Connection, Node, Workflow
 
 
 def example_workflow() -> Workflow:
@@ -42,6 +42,6 @@ def example_workflow() -> Workflow:
 
 
 if __name__ == "__main__":
-    from workflow_graph.viewer import WorkflowViewer
+    from app.workflow_graph.viewer import WorkflowViewer
 
     WorkflowViewer(example_workflow).show()

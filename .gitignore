@@ -16,3 +16,5 @@ wheels/
 workflow_graph/index.html
 workflow_graph/generated_workflows
 .env
+venv
+viktor-chatfield.md
