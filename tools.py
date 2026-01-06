@@ -1,7 +1,8 @@
+import json
 from pathlib import Path
 from typing import Annotated, Any, Literal
-from pydantic import BaseModel, Field
-import json
+
+from pydantic import BaseModel, Field, Json
 
 
 class Workflow(BaseModel):
@@ -17,7 +18,7 @@ class GeometryGeneration(BaseModel):
 
 class WindloadAnalysis(BaseModel):
     region: Literal["A", "B", "C", "D"]
-    wind_speed: float = Field(..., description="Wind Speed in m/s2")
+    wind_speed: float = Field(..., description="Wind speed in m/s")
     exposure_level: Literal["A", "B", "C", "D"]
 
 
@@ -58,8 +59,12 @@ class DummyWorkflowNode(BaseModel):
         "footing_design",
     ] = Field(..., description="Type of workflow node to add to the graph")
     label: str = Field(..., description="Human-readable label for the node")
-    inputs: dict[str, Any] = Field(
-        default_factory=dict, description="Input parameters for the node"
+    inputs: Json[Any] = Field(
+        default="{}",
+        description=(
+            "Input parameters for the node, provided as a JSON string. "
+            'Example: \'{"wind_speed": 45.0, "region": "B"}\'.'
+        ),
     )
     depends_on: list[str] = Field(
         default_factory=list,
@@ -68,7 +73,7 @@ class DummyWorkflowNode(BaseModel):
 
 
 async def create_dummy_workflow_node_func(
-    ctx: Any,
+    _ctx: Any,
     args: str,
 ) -> str:
     payload = DummyWorkflowNode.model_validate_json(args)
