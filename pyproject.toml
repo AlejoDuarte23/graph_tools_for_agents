@@ -8,6 +8,7 @@ dependencies = [
     "openai-agents>=0.6.4",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.1",
+    "viktor>=14.26.0",
 ]
 
 [dependency-groups]
