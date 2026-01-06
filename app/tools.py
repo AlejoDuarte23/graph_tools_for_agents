@@ -183,7 +183,27 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
         lambda: workflow,
         root_dir=Path(__file__).resolve().parent / "workflow_graph",
     )
+    html_content = viewer.render_html()
     viewer.write(html_path)
+
+    # Store HTML in VIKTOR storage for WebView access
+    try:
+        import viktor as vkt
+
+        data_json = json.dumps(
+            {
+                "html": html_content,
+                "workflow_name": payload.workflow_name,
+            }
+        )
+        vkt.Storage().set(
+            "workflow_html",
+            data=vkt.File.from_data(data_json),
+            scope="entity",
+        )
+    except Exception:
+        # Ignore if not running in VIKTOR context
+        pass
 
     json_path: Path | None = None
     if payload.write_workflow_json:
