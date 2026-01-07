@@ -4,6 +4,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, Json
 
+from app.viktor_tools.seismic_load_tool import calculate_seismic_loads_tool
+from app.viktor_tools.wind_loads_tool import calculate_wind_loads_tool
+from app.viktor_tools.footing_capacity_tool import calculate_footing_capacity_tool
+from app.viktor_tools.geometry_tool import generate_geometry_tool
+
 
 class Workflow(BaseModel):
     pass
@@ -216,5 +221,12 @@ def compose_workflow_graph_tool() -> Any:
     )
 
 
-def get_dummy_tools() -> list[Any]:
-    return [create_dummy_workflow_node_tool(), compose_workflow_graph_tool()]
+def get_tools() -> list[Any]:
+    return [
+        create_dummy_workflow_node_tool(),
+        compose_workflow_graph_tool(),
+        calculate_seismic_loads_tool(),
+        calculate_wind_loads_tool(),
+        calculate_footing_capacity_tool(),
+        generate_geometry_tool(),
+    ]
