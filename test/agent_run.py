@@ -3,7 +3,7 @@ from textwrap import dedent
 
 from agents import Agent, Runner
 from dotenv import load_dotenv
-from app.tools import get_dummy_tools
+from app.tools import get_tools
 
 load_dotenv()
 agent = Agent(
@@ -13,12 +13,11 @@ agent = Agent(
         workflows. Use 'GeometryGeneration' first to define the structure geometry, then run the load estimation
         tools (which require geometry). The 'Structural Analysis' tool requires the load estimation results and
         generates internal forces and reaction loads. Finally, use the 'footing design' tool, which requires the
-        reaction loads and depends on the 'footing capacity' tool (which has no dependencies). Adhere to function
-        definitions to 
+        reaction loads and depends on the 'footing capacity' tool (which has no dependencies).
     """
     ),
     model="gpt-5",
-    tools=get_dummy_tools(),
+    tools=get_tools(),
 )
 
 

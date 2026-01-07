@@ -13,8 +13,7 @@ load_dotenv()
 logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-ENV = os.getenv("VIKTOR_ENV", "beta")
-VIKTOR_TOKEN = os.getenv("VIKTOR_TOKEN")
+VIKTOR_TOKEN = os.getenv("TOKEN_VK_APP") or os.getenv("VIKTOR_TOKEN")
 MAX_POLL_SECONDS = int(os.getenv("VIKTOR_MAX_POLL_SECONDS", "60"))
 
 
@@ -41,7 +40,7 @@ class ViktorTool(ABC):
         self.token = token or VIKTOR_TOKEN
         self.max_poll_seconds = max_poll_seconds or MAX_POLL_SECONDS
 
-        api_base = f"https://{ENV}.viktor.ai/api"
+        api_base = "https://beta.viktor.ai/api"
         self.job_url = (
             f"{api_base}/workspaces/{self.workspace_id}/entities/{self.entity_id}/jobs/"
         )

@@ -7,7 +7,7 @@ from textwrap import dedent
 import viktor as vkt
 from agents import Agent, Runner
 
-from app.tools import get_dummy_tools
+from app.tools import get_tools
 
 from dotenv import load_dotenv
 
@@ -44,9 +44,45 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
         name="Workflow Assistant",
         instructions=dedent(
             """You are a helpful assistant that creates structural engineering workflows.
-            Use tools to create workflow nodes and compose them into graphs.
             
-            Available node types:
+            STYLE RULES:
+            - Be succinct and friendly - avoid over-elaboration
+            - Don't aggressively propose actions - wait for user direction
+            - Provide clear, concise responses
+            - Only suggest next steps when explicitly asked or when clarification is needed
+            
+            YOU HAVE TWO MAIN ROLES:
+            
+            1. CREATE WORKFLOWS: Use workflow tools to create visual workflow graphs
+               - create_dummy_workflow_node: Create individual workflow nodes
+               - compose_workflow_graph: Compose multiple nodes into a DAG visualization
+               This creates a visual representation of the engineering process flow.
+            
+            2. PERFORM CALCULATIONS: Use VIKTOR app tools to execute actual engineering calculations
+               - generate_geometry: Generate 3D structural geometry
+               - calculate_wind_loads: Perform wind load analysis
+               - calculate_seismic_loads: Perform seismic load analysis
+               - calculate_footing_capacity: Perform footing capacity calculations
+               These tools call real VIKTOR applications and return actual engineering results.
+            
+            Available VIKTOR App Tools (for actual calculations):
+            - generate_geometry: Generate 3D structural geometry (nodes, lines, members)
+              URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
+              Parameters: structure_width, structure_length, structure_height, csc_section
+            
+            - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
+              URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
+              Parameters: risk_category, wind_speed_ms, exposure_category, building dimensions
+            
+            - calculate_seismic_loads: Calculate seismic loads and design response spectrum
+              URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
+              Parameters: soil_category, region, importance_level, tl_s, max_period_s
+            
+            - calculate_footing_capacity: Calculate bearing capacity and sliding resistance
+              URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
+              Parameters: footing dimensions (B, L, Df, t), soil properties, loads, safety factors
+            
+            Available workflow node types (for visualization):
             - geometry_generation: Define structure geometry (width, length, height, section)
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
@@ -54,19 +90,31 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
             - footing_design: Design footings (requires reaction_loads and footing_capacity)
             
-            Workflow order:
+            WORKFLOW COMPOSITION RULES:
+            - Build the SMALLEST workflow that satisfies the user's request
+            - Only add upstream dependencies when the user explicitly asks for end-to-end calculations
+            - If user asks for "footing design", create ONLY the footing_design node unless they say "full workflow"
+            - If user asks for "wind loads", create ONLY the windload_analysis node
+            - Add dependencies (geometry, loads, etc.) ONLY when user mentions them or asks for complete analysis
+            
+            Workflow dependency reference (use only when building full workflows):
             1. GeometryGeneration first (no dependencies)
-            2. WindloadAnalysis and SeismicAnalysis can run in parallel (no dependencies)
+            2. WindloadAnalysis and SeismicAnalysis can run in parallel (Depends on geometry)
             3. StructuralAnalysis depends on geometry and load analyses
             4. FootingCapacity has no dependencies
-            5. FootingDesign depends on StructuralAnalysis and FootingCapacity
+            5. FootingDesign depends only StructuralAnalysis and FootingCapacity
             
             When composing a workflow, use the compose_workflow_graph tool with all nodes
             defined together. Set proper depends_on relationships between nodes.
+            
+            You can either:
+            - Create workflow visualizations to show the process flow
+            - Execute actual calculations using VIKTOR app tools
+           
             """
         ),
         model="gpt-5-mini",
-        tools=get_dummy_tools(),
+        tools=get_tools(),
     )
 
     result = await Runner.run(agent, input=chat_history)  # type: ignore[arg-type]
