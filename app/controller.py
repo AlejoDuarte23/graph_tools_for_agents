@@ -63,6 +63,7 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
                - calculate_wind_loads: Perform wind load analysis
                - calculate_seismic_loads: Perform seismic load analysis
                - calculate_footing_capacity: Perform footing capacity calculations
+               - calculate_structural_analysis: Perform structural analysis on truss beams
                These tools call real VIKTOR applications and return actual engineering results.
             
             Available VIKTOR App Tools (for actual calculations):
@@ -82,8 +83,12 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
               Parameters: footing dimensions (B, L, Df, t), soil properties, loads, safety factors
             
+            - calculate_structural_analysis: Run structural analysis on rectangular truss beams
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section, load_q, wind_pressure
+            
             IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
-            For node types without explicit tool URLs (structural_analysis, footing_design),
+            For node types without explicit tool URLs (footing_design),
             use the default URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
             
             Available workflow node types (for visualization with URLs):
@@ -93,8 +98,8 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               → Use URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
               → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
-            - structural_analysis: Requires geometry and load results
-              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
+            - structural_analysis: Structural analysis on truss beams with load combinations
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
               → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
             - footing_design: Design footings (requires reaction_loads and footing_capacity)

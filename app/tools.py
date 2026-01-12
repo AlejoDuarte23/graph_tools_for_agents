@@ -8,6 +8,7 @@ from app.viktor_tools.seismic_load_tool import calculate_seismic_loads_tool
 from app.viktor_tools.wind_loads_tool import calculate_wind_loads_tool
 from app.viktor_tools.footing_capacity_tool import calculate_footing_capacity_tool
 from app.viktor_tools.geometry_tool import generate_geometry_tool
+from app.viktor_tools.structural_analysis_tool import calculate_structural_analysis_tool
 
 
 class Workflow(BaseModel):
@@ -237,4 +238,5 @@ def get_tools() -> list[Any]:
         calculate_wind_loads_tool(),
         calculate_footing_capacity_tool(),
         generate_geometry_tool(),
+        calculate_structural_analysis_tool(),
     ]
