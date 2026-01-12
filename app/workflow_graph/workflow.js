@@ -12,14 +12,62 @@ export class WorkflowGraph {
     this.GAP_Y  = parseFloat(rootStyle.getPropertyValue("--gap-y"));
     this.EDGE_W = (rootStyle.getPropertyValue("--edge-w") || "8").trim();
 
+    // Pastel colors and custom icons for each node type
     this.typeStyles = {
-      geometry:       { bg: "#5aa9ff", glyph: "□" },
-      seismic:        { bg: "#ffb36b", glyph: "∿" },
-      wind:           { bg: "#6fd3a0", glyph: "≋" },
-      structural:     { bg: "#ff6f6f", glyph: "△" },
-      footing_cap:    { bg: "#b58bff", glyph: "▭" },
-      footing_design: { bg: "#ffd86b", glyph: "○" },
-      default:        { bg: "#d5d5d5", glyph: "•" },
+      geometry_generation: { 
+        bg: "#B8D4F1",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>`
+      },
+      windload_analysis: { 
+        bg: "#C5E8B7",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
+        </svg>`
+      },
+      seismic_analysis: { 
+        bg: "#FFD4A3",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>`
+      },
+      structural_analysis: { 
+        bg: "#FFB3BA",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+          <line x1="9" y1="22" x2="9" y2="2"></line>
+          <line x1="15" y1="22" x2="15" y2="2"></line>
+          <line x1="4" y1="8" x2="20" y2="8"></line>
+          <line x1="4" y1="14" x2="20" y2="14"></line>
+        </svg>`
+      },
+      footing_capacity: { 
+        bg: "#D4C5F9",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v18M3 12h18M8 8L4 12l4 4M16 8l4 4-4 4"></path>
+        </svg>`
+      },
+      footing_design: { 
+        bg: "#FFF5BA",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>`
+      },
+      default: { 
+        bg: "#E5E5E5",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>`
+      }
     };
 
     this.data = { nodes: [] };
@@ -212,10 +260,25 @@ export class WorkflowGraph {
       el.dataset.id = n.id;
       el.style.left = pos.x + "px";
       el.style.top = pos.y + "px";
+      // Create clickable icon if URL exists
+      const url = n.url || "";
+      const iconClass = url ? "icon clickable-icon" : "icon";
+
       el.innerHTML = `
-        <div class="icon" style="background:${style.bg};">${style.glyph}</div>
+        <div class="${iconClass}" style="background:${style.bg};" data-url="${escapeHtml(url)}">
+          ${style.icon}
+        </div>
         <div class="title" title="${escapeHtml(n.title || n.id)}">${escapeHtml(n.title || n.id)}</div>
       `;
+
+      // Handle icon click to open URL
+      const iconEl = el.querySelector(".icon");
+      if (url && iconEl) {
+        iconEl.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          window.open(url, "_blank");
+        });
+      }
 
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -239,6 +302,11 @@ export class WorkflowGraph {
     let dragging = false;
 
     el.addEventListener("pointerdown", (ev) => {
+      // Don't start dragging if clicking on the icon
+      if (ev.target.closest(".clickable-icon")) {
+        return;
+      }
+
       ev.preventDefault();
       el.setPointerCapture(ev.pointerId);
       const p = this.positions.get(id);
