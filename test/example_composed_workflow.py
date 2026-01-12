@@ -8,47 +8,54 @@ from app.tools import (
 
 
 async def main() -> None:
+    """Example workflow with URLs for clickable tool icons."""
     payload = ComposeWorkflowGraphArgs(
-        workflow_name="example",
+        workflow_name="example_with_urls",
         nodes=[
             DummyWorkflowNode(
                 node_id="geometry",
                 node_type="geometry_generation",
-                label="Geometry Generation App",
+                label="Geometry Generation",
+                url="https://beta.viktor.ai/workspaces/4672/app/editor/2394",
             ),
             DummyWorkflowNode(
                 node_id="seismic",
                 node_type="seismic_analysis",
-                label="Seismic Analysis App",
+                label="Seismic Analysis",
+                url="https://beta.viktor.ai/workspaces/4680/app/editor/2403",
                 depends_on=["geometry"],
             ),
             DummyWorkflowNode(
                 node_id="wind",
                 node_type="windload_analysis",
-                label="Wind Load Analysis App",
+                label="Wind Load Analysis",
+                url="https://beta.viktor.ai/workspaces/4675/app/editor/2397",
                 depends_on=["geometry"],
             ),
             DummyWorkflowNode(
                 node_id="structural",
                 node_type="structural_analysis",
-                label="Structural Analysis App",
+                label="Structural Analysis",
+                url="https://beta.viktor.ai/workspaces/4672/app/editor/2394",
                 depends_on=["seismic", "wind"],
             ),
             DummyWorkflowNode(
                 node_id="footing_cap",
                 node_type="footing_capacity",
-                label="Footing Capacities",
+                label="Footing Capacity",
+                url="https://beta.viktor.ai/workspaces/4682/app/editor/2404",
             ),
             DummyWorkflowNode(
                 node_id="footing_design",
                 node_type="footing_design",
                 label="Footing Design",
+                url="https://beta.viktor.ai/workspaces/4672/app/editor/2394",
                 depends_on=["structural", "footing_cap"],
             ),
         ],
     )
 
-    result = await compose_workflow_graph_func(ctx=None, args=payload.model_dump_json())
+    result = await compose_workflow_graph_func(None, payload.model_dump_json())
     print(result)
 
 

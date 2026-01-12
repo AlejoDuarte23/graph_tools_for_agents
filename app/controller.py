@@ -82,13 +82,23 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
               Parameters: footing dimensions (B, L, Df, t), soil properties, loads, safety factors
             
-            Available workflow node types (for visualization):
+            IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
+            For node types without explicit tool URLs (structural_analysis, footing_design),
+            use the default URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
+            
+            Available workflow node types (for visualization with URLs):
             - geometry_generation: Define structure geometry (width, length, height, section)
+              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
+              → Use URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
+              → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
             - structural_analysis: Requires geometry and load results
+              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
             - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
+              → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
             - footing_design: Design footings (requires reaction_loads and footing_capacity)
+              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
             
             WORKFLOW COMPOSITION RULES:
             - Build the SMALLEST workflow that satisfies the user's request
@@ -127,7 +137,17 @@ def workflow_agent_sync(chat_history: list[dict[str, str]]) -> str:
 
 
 class Parametrization(vkt.Parametrization):
-    chat = vkt.Chat("Workflow Assistant", method="call_llm")
+    title = vkt.Text("""# 🏗️ VIKTOR Workflow Agent
+    
+Create visual workflow graphs for structural engineering projects! 🎨
+    
+**What I can do:**
+- 📊 Build interactive workflow diagrams with clickable tool links
+- 🔧 Execute real engineering calculations (geometry, wind loads, seismic analysis, footing design)
+- 🔗 Connect multiple analysis steps into complete workflows
+    
+""")
+    chat = vkt.Chat("", method="call_llm")
 
 
 class Controller(vkt.Controller):

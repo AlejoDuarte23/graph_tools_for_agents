@@ -64,6 +64,10 @@ class DummyWorkflowNode(BaseModel):
         "footing_design",
     ] = Field(..., description="Type of workflow node to add to the graph")
     label: str = Field(..., description="Human-readable label for the node")
+    url: str | None = Field(
+        default=None,
+        description="URL to the VIKTOR app tool (optional, falls back to default if not provided)",
+    )
     inputs: Json[Any] = Field(
         default="{}",
         description=(
@@ -159,12 +163,16 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
     from app.workflow_graph.models import Connection, Node, Workflow
     from app.workflow_graph.viewer import WorkflowViewer
 
+    # Default fallback URL
+    default_url = "https://beta.viktor.ai/workspaces/4672/app/editor/2394"
+
     workflow = Workflow(
         nodes=[
             Node(
                 id=n.node_id,
                 title=n.label,
                 type=n.node_type,
+                url=n.url or default_url,
                 depends_on=[Connection(node_id=d) for d in n.depends_on],
             )
             for n in payload.nodes
