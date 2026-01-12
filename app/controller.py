@@ -64,6 +64,7 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
                - calculate_seismic_loads: Perform seismic load analysis
                - calculate_footing_capacity: Perform footing capacity calculations
                - calculate_structural_analysis: Perform structural analysis on truss beams
+               - calculate_sensitivity_analysis: Run sensitivity analysis on truss height
                These tools call real VIKTOR applications and return actual engineering results.
             
             Available VIKTOR App Tools (for actual calculations):
@@ -86,6 +87,10 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - calculate_structural_analysis: Run structural analysis on rectangular truss beams
               URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
               Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section, load_q, wind_pressure
+            
+            - calculate_sensitivity_analysis: Run sensitivity analysis varying truss height
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, n_divisions, cross_section, load_q, wind_pressure, min_height, max_height, n_steps
             
             IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
             For node types without explicit tool URLs (footing_design),
