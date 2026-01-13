@@ -5,7 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "kaleido==0.1.0.post1 ; sys_platform == 'win32'",
+    "kaleido==0.2.1 ; sys_platform == 'linux'",
     "openai-agents>=0.6.4",
+    "plotly>=6.5.1",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.1",
     "viktor>=14.26.0",

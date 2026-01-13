@@ -8,8 +8,11 @@ import viktor as vkt
 from agents import Agent, Runner
 
 from app.tools import get_tools
+from app.viktor_tools.plotting_tool import PlotTool
 
 from dotenv import load_dotenv
+
+import plotly.graph_objects as go
 
 load_dotenv()
 
@@ -67,6 +70,10 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
                - calculate_sensitivity_analysis: Run sensitivity analysis on truss height
                These tools call real VIKTOR applications and return actual engineering results.
             
+            3. VISUALIZE DATA: Use visualization tools to display results
+               - generate_plotly: Create bar plots from x and y data (agent tool, not a VIKTOR app)
+               This creates visualizations in the Plot view panel.
+            
             Available VIKTOR App Tools (for actual calculations):
             - generate_geometry: Generate 3D rectangular truss beam geometry (nodes, lines, members)
               URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
@@ -91,6 +98,11 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - calculate_sensitivity_analysis: Run sensitivity analysis varying truss height
               URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
               Parameters: truss_length, truss_width, n_divisions, cross_section, load_q, wind_pressure, min_height, max_height, n_steps
+            
+            Available Agent Tools (local visualization, not VIKTOR apps):
+            - generate_plotly: Generate bar plots for data visualization
+              Parameters: x (list of floats), y (list of floats)
+              Creates a Plotly bar chart displayed in the Plot view panel
             
             IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
             For node types without explicit tool URLs (footing_design),
@@ -143,6 +155,23 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
 
     result = await Runner.run(agent, input=chat_history)  # type: ignore[arg-type]
     return result.final_output
+
+
+def get_visibility(params, **kwargs):
+    if not params.chat:
+        entities = vkt.Storage().list(scope="entity")
+        for entity in entities:
+            if entity == "PlotTool":
+                vkt.Storage().delete("PlotTool", scope="entity")
+
+    try:
+        out_bool = vkt.Storage().get("PlotTool", scope="entity").getvalue()
+        if out_bool:
+            return True
+        return False
+    except Exception:
+        # If there is no data, then view is hiden.
+        return False
 
 
 def workflow_agent_sync(chat_history: list[dict[str, str]]) -> str:
@@ -234,3 +263,24 @@ class Controller(vkt.Controller):
         # Default placeholder when no workflow exists
         placeholder_html = "<!DOCTYPE html><html><head><style>body { margin: 0; background-color: white; }</style></head><body></body></html>"
         return vkt.WebResult(html=placeholder_html)
+
+    @vkt.PlotlyView("Plot", width=100, visible=get_visibility)
+    def plot_view(self, params, **kwargs) -> vkt.PlotlyResult:
+        if not params.chat:
+            try:
+                vkt.Storage().delete("PlotTool", scope="entity")
+            except Exception:
+                pass
+        try:
+            raw = vkt.Storage().get("PlotTool", scope="entity").getvalue()  # str
+            print(f"{raw}=")
+            tool_input = PlotTool.model_validate(json.loads(raw))
+
+            fig = go.Figure(
+                data=[go.Bar(x=tool_input.x, y=tool_input.y)],
+                layout=go.Layout(title="Bar Plot"),
+            )
+        except Exception:
+            fig = go.Figure()
+
+        return vkt.PlotlyResult(fig.to_json())
