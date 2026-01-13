@@ -53,17 +53,33 @@ class GeometryGenerationTool(ViktorTool):
         return {
             "method_name": self.method_name,
             "params": self.geometry.model_dump(),
-            "poll_result": True,
+            "poll_result": False,
         }
 
     def download_result(self, result: dict) -> dict:
-        if "url" not in result:
-            raise ValueError("No URL in result to download")
+        # If the job already returned the JSON content, return it directly.
+        if "metadata" in result and "parameters" in result:
+            return result
 
-        download_url = result["url"]
+        # Check for download URL (may be under 'url' or 'download')
+        download_url = result.get("url") or result.get("download")
+        if not download_url:
+            raise ValueError(
+                f"No URL in result to download. Keys={list(result.keys())}"
+            )
+
+        # Handle nested dict structure {'url': '...'}
+        if isinstance(download_url, dict):
+            download_url = download_url.get("url")
+        if not download_url:
+            raise ValueError(f"Could not extract download URL from result: {result}")
+
         logger.info(f"Downloading result from {download_url}")
 
-        response = requests.get(download_url)
+        response = requests.get(
+            download_url,
+            timeout=(5, 120),
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to download result (status={response.status_code}): {response.text[:500]}"
