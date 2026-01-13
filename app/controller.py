@@ -68,9 +68,9 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
                These tools call real VIKTOR applications and return actual engineering results.
             
             Available VIKTOR App Tools (for actual calculations):
-            - generate_geometry: Generate 3D structural geometry (nodes, lines, members)
-              URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
-              Parameters: structure_width, structure_length, structure_height, csc_section
+            - generate_geometry: Generate 3D rectangular truss beam geometry (nodes, lines, members)
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section
             
             - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
               URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
@@ -94,11 +94,11 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             
             IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
             For node types without explicit tool URLs (footing_design),
-            use the default URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
+            use the default URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             
             Available workflow node types (for visualization with URLs):
-            - geometry_generation: Define structure geometry (width, length, height, section)
-              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
+            - geometry_generation: Define truss beam geometry (truss_length, truss_width, truss_height, n_divisions, cross_section)
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
               → Use URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
@@ -108,7 +108,7 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
               → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
             - footing_design: Design footings (requires reaction_loads and footing_capacity)
-              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437 (default)
             - sensitivity_analysis: Sensitivity analysis varying truss height
               → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             
