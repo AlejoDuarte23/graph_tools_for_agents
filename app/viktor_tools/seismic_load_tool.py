@@ -1,6 +1,5 @@
 from typing import Literal, Any
 from pydantic import BaseModel, Field
-import requests
 import logging
 import json
 from .base import ViktorTool
@@ -87,24 +86,9 @@ class SeismicLoadTool(ViktorTool):
             "poll_result": True,
         }
 
-    def download_result(self, result: dict) -> dict:
-        if "url" not in result:
-            raise ValueError("No URL in result to download")
-
-        download_url = result["url"]
-        logger.info(f"Downloading result from {download_url}")
-
-        response = requests.get(download_url)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to download result (status={response.status_code}): {response.text[:500]}"
-            )
-
-        return response.json()
-
     def run_and_download(self) -> dict:
-        result = self.run()
-        return self.download_result(result)
+        job = self.run()
+        return self.download_result(job)
 
     def run_and_parse(self) -> SeismicLoadOutput:
         content = self.run_and_download()
