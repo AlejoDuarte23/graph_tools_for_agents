@@ -90,10 +90,12 @@ def test_wind_loads():
     wind_input = WindLoadInput(
         risk_category="II",
         site_elevation_m=138.0,
-        structure_length_mm=9500,
-        structure_width_mm=9500,
-        mean_roof_height_mm=3660,
+        truss_length=10000,
+        truss_width=1000,
+        truss_height=1500,
         roof_pitch_angle=12,
+        n_divisions=6,
+        cross_section="SHS50x4",
         exposure_category="C",
         wind_speed_ms=47.0,
     )
@@ -106,8 +108,8 @@ def test_wind_loads():
         f"Expected WindLoadOutput, got {type(result)}"
     )
 
-    assert result.qh_kpa > 0
-    assert result.q_kpa > 0
+    assert result.qz_kpa > 0
+    assert result.p_kpa > 0
 
 
 def test_structural_analysis():

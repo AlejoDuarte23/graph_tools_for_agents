@@ -80,8 +80,8 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section
             
             - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
-              URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
-              Parameters: risk_category, wind_speed_ms, exposure_category, building dimensions
+              URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
+              Parameters: risk_category, wind_speed_ms, exposure_category, truss dimensions
             
             - calculate_seismic_loads: Calculate seismic loads and design response spectrum
               URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
@@ -112,7 +112,7 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - geometry_generation: Define truss beam geometry (truss_length, truss_width, truss_height, n_divisions, cross_section)
               → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
-              → Use URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
+              → Use URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
               → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
             - structural_analysis: Structural analysis on truss beams with load combinations
