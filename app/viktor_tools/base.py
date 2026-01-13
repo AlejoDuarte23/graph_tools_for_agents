@@ -8,6 +8,8 @@ from typing import Any
 import requests
 from dotenv import load_dotenv
 
+from .api_types import JobCreateResponse, JobResultPayload, JobStatusResponse
+
 load_dotenv()
 
 logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
@@ -20,16 +22,6 @@ API_BASE = os.getenv("VIKTOR_API_BASE", "https://beta.viktor.ai/api").rstrip("/"
 
 HTTP_CONNECT_TIMEOUT = float(os.getenv("VIKTOR_HTTP_CONNECT_TIMEOUT", "5"))
 HTTP_READ_TIMEOUT = float(os.getenv("VIKTOR_HTTP_READ_TIMEOUT", "120"))
-
-
-def parse_json_response(response: requests.Response, context: str) -> dict:
-    try:
-        return response.json()
-    except ValueError as exc:
-        snippet = response.text[:500]
-        raise RuntimeError(
-            f"{context} returned non-JSON (status={response.status_code}): {snippet}"
-        ) from exc
 
 
 class ViktorTool(ABC):
@@ -59,27 +51,25 @@ class ViktorTool(ABC):
     def build_payload(self) -> dict[str, Any]:
         raise NotImplementedError
 
-    def extract_success_payload(self, body: dict) -> dict:
-        # Jobs "success" payload is in `result` per docs.
-        if isinstance(body.get("result"), dict):
-            return body["result"]
-        # Fallback for older shapes
-        if isinstance(body.get("content"), dict):
-            return body["content"]
-        return body
+    def download_result(self, job: JobStatusResponse) -> dict:
+        """Download JSON result from job's download URL."""
+        if not job.download_url:
+            raise ValueError("No download URL in job result")
 
-    def extract_error_message(self, body: dict) -> str:
-        # Failed jobs fill `error`
-        if isinstance(body.get("error"), dict):
-            msg = body["error"].get("message")
-            if msg:
-                return str(msg)
-        for k in ("error_message", "message"):
-            if body.get(k):
-                return str(body[k])
-        return json.dumps(body)[:500]
+        logger.info(f"Downloading result from {job.download_url}")
 
-    def poll_job(self, job_url: str) -> dict:
+        response = requests.get(
+            job.download_url,
+            timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT),
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to download (status={response.status_code}): {response.text[:500]}"
+            )
+
+        return response.json()
+
+    def poll_job(self, job_url: str) -> JobStatusResponse:
         deadline = time.monotonic() + self.max_poll_seconds
         sleep_s = 0.8
 
@@ -89,31 +79,29 @@ class ViktorTool(ABC):
                 headers=self.auth_headers,
                 timeout=(HTTP_CONNECT_TIMEOUT, HTTP_READ_TIMEOUT),
             )
-            body = parse_json_response(res, "Job polling response")
-            status = body.get("status")
 
-            if status == "success":
-                logger.info("Job completed successfully!")
-                return self.extract_success_payload(body)
-
-            if status in (
-                "failed",
-                "cancelled",
-                "error",
-                "error_user",
-                "error_timeout",
-            ):
+            if not res.ok:
                 raise RuntimeError(
-                    f"Job failed (status={status}): {self.extract_error_message(body)}"
+                    f"Job polling failed (status={res.status_code}): {res.text[:500]}"
                 )
 
-            logger.info(f"Job status: {status}, polling again...")
+            job = JobStatusResponse.model_validate(res.json())
+
+            if job.is_success():
+                logger.info("Job completed successfully!")
+                return job
+
+            if job.is_failed():
+                error_msg = job.get_error_message() or f"status={job.status}"
+                raise RuntimeError(f"Job failed: {error_msg}")
+
+            logger.info(f"Job status: {job.status}, polling again...")
             time.sleep(sleep_s)
             sleep_s = min(sleep_s * 1.5, 5.0)
 
         raise TimeoutError(f"Job did not finish within {self.max_poll_seconds} seconds")
 
-    def run(self) -> dict:
+    def run(self) -> JobStatusResponse:
         payload = self.build_payload()
 
         # Force all tools to run async + we poll ourselves
@@ -134,18 +122,27 @@ class ViktorTool(ABC):
                 f"Job submission failed (status={response.status_code}): {response.text[:500]}"
             )
 
-        job_data = parse_json_response(response, "Job submission response")
+        job_create = JobCreateResponse.model_validate(response.json())
 
-        # When job is still running you get a `url` to poll.
-        job_url = job_data.get("url")
-        if job_url:
-            logger.info(f"Job created: {job_url}")
-            return self.poll_job(job_url)
+        # When job is still running you get a `url` to poll
+        if job_create.url:
+            logger.info(f"Job created: {job_create.url}")
+            return self.poll_job(job_create.url)
 
-        # In case the platform returns a completed job payload anyway
-        status = job_data.get("status")
-        if status == "success":
+        # In case the platform returns a completed job payload synchronously
+        if job_create.status == "success":
             logger.info("Job completed synchronously")
-            return self.extract_success_payload(job_data)
+            # Convert JobCreateResponse to JobStatusResponse shape
+            result_payload = (
+                JobResultPayload.model_validate(job_create.content)
+                if job_create.content
+                else None
+            )
+            return JobStatusResponse(
+                uid=job_create.uid or 0,
+                kind=job_create.kind or "result",
+                status="success",
+                result=result_payload,
+            )
 
-        raise RuntimeError(f"Unexpected job response: {job_data}")
+        raise RuntimeError(f"Unexpected job response: {job_create.model_dump()}")

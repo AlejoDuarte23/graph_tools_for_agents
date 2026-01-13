@@ -1,6 +1,5 @@
 from typing import Literal, Any
 from pydantic import BaseModel, Field
-import requests
 import logging
 import json
 from .base import ViktorTool
@@ -190,40 +189,9 @@ class FootingCapacityTool(ViktorTool):
             "poll_result": True,
         }
 
-    def download_result(self, result: dict) -> dict:
-        # If the job already returned the JSON content, return it directly.
-        if "footing_results" in result or "input_parameters" in result:
-            return result
-
-        # Check for download URL (may be under 'url' or 'download')
-        download_url = result.get("url") or result.get("download")
-        if not download_url:
-            raise ValueError(
-                f"No URL in result to download. Keys={list(result.keys())}"
-            )
-
-        # Handle nested dict structure {'url': '...'}
-        if isinstance(download_url, dict):
-            download_url = download_url.get("url")
-        if not download_url:
-            raise ValueError(f"Could not extract download URL from result: {result}")
-
-        logger.info(f"Downloading result from {download_url}")
-
-        response = requests.get(
-            download_url,
-            timeout=(5, 120),
-        )
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to download result (status={response.status_code}): {response.text[:500]}"
-            )
-
-        return response.json()
-
     def run_and_download(self) -> dict:
-        result = self.run()
-        return self.download_result(result)
+        job = self.run()
+        return self.download_result(job)
 
     def run_and_parse(self) -> FootingCapacityOutput:
         content = self.run_and_download()
