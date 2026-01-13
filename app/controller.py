@@ -109,6 +109,8 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
             - footing_design: Design footings (requires reaction_loads and footing_capacity)
               → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
+            - sensitivity_analysis: Sensitivity analysis varying truss height
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             
             WORKFLOW COMPOSITION RULES:
             - Build the SMALLEST workflow that satisfies the user's request
@@ -119,10 +121,12 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             
             Workflow dependency reference (use only when building full workflows):
             1. GeometryGeneration first (no dependencies)
-            2. WindloadAnalysis and SeismicAnalysis can run in parallel (Depends on geometry)
-            3. StructuralAnalysis depends on geometry and load analyses
-            4. FootingCapacity has no dependencies
-            5. FootingDesign depends only StructuralAnalysis and FootingCapacity
+            2. WindloadAnalysis depends on geometry_generation
+            3. SeismicAnalysis depends on geometry_generation
+            4. StructuralAnalysis depends on geometry_generation and load analyses
+            5. SensitivityAnalysis depends on geometry_generation and load analyses
+            6. FootingCapacity depends on geometry_generation
+            7. FootingDesign depends on StructuralAnalysis and FootingCapacity
             
             When composing a workflow, use the compose_workflow_graph tool with all nodes
             defined together. Set proper depends_on relationships between nodes.

@@ -60,6 +60,16 @@ export class WorkflowGraph {
           <polyline points="10 9 9 9 8 9"></polyline>
         </svg>`
       },
+      sensitivity_analysis: { 
+        bg: "#B5EAD7",
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+          <polyline points="3 17 9 11 13 15 21 7"></polyline>
+          <polyline points="17 7 21 7 21 11"></polyline>
+        </svg>`
+      },
       default: { 
         bg: "#E5E5E5",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
