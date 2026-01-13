@@ -63,6 +63,8 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
                - calculate_wind_loads: Perform wind load analysis
                - calculate_seismic_loads: Perform seismic load analysis
                - calculate_footing_capacity: Perform footing capacity calculations
+               - calculate_structural_analysis: Perform structural analysis on truss beams
+               - calculate_sensitivity_analysis: Run sensitivity analysis on truss height
                These tools call real VIKTOR applications and return actual engineering results.
             
             Available VIKTOR App Tools (for actual calculations):
@@ -82,8 +84,16 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
               Parameters: footing dimensions (B, L, Df, t), soil properties, loads, safety factors
             
+            - calculate_structural_analysis: Run structural analysis on rectangular truss beams
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section, load_q, wind_pressure
+            
+            - calculate_sensitivity_analysis: Run sensitivity analysis varying truss height
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, n_divisions, cross_section, load_q, wind_pressure, min_height, max_height, n_steps
+            
             IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
-            For node types without explicit tool URLs (structural_analysis, footing_design),
+            For node types without explicit tool URLs (footing_design),
             use the default URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394
             
             Available workflow node types (for visualization with URLs):
@@ -93,12 +103,14 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
               → Use URL: https://beta.viktor.ai/workspaces/4675/app/editor/2397
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
               → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
-            - structural_analysis: Requires geometry and load results
-              → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
+            - structural_analysis: Structural analysis on truss beams with load combinations
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
               → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
             - footing_design: Design footings (requires reaction_loads and footing_capacity)
               → Use URL: https://beta.viktor.ai/workspaces/4672/app/editor/2394 (default)
+            - sensitivity_analysis: Sensitivity analysis varying truss height
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             
             WORKFLOW COMPOSITION RULES:
             - Build the SMALLEST workflow that satisfies the user's request
@@ -109,10 +121,12 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             
             Workflow dependency reference (use only when building full workflows):
             1. GeometryGeneration first (no dependencies)
-            2. WindloadAnalysis and SeismicAnalysis can run in parallel (Depends on geometry)
-            3. StructuralAnalysis depends on geometry and load analyses
-            4. FootingCapacity has no dependencies
-            5. FootingDesign depends only StructuralAnalysis and FootingCapacity
+            2. WindloadAnalysis depends on geometry_generation
+            3. SeismicAnalysis depends on geometry_generation
+            4. StructuralAnalysis depends on geometry_generation and load analyses
+            5. SensitivityAnalysis depends on geometry_generation and load analyses
+            6. FootingCapacity depends on geometry_generation
+            7. FootingDesign depends on StructuralAnalysis and FootingCapacity
             
             When composing a workflow, use the compose_workflow_graph tool with all nodes
             defined together. Set proper depends_on relationships between nodes.
