@@ -8,34 +8,32 @@ from .base import ViktorTool
 logger = logging.getLogger(__name__)
 
 
-class Node(BaseModel):
-    x: float
-    y: float
-    z: float
+class Metadata(BaseModel):
+    total_nodes: int
+    total_lines: int
+    units: dict[str, str]
 
 
-class Line(BaseModel):
-    start: int | str
-    end: int | str
-
-
-class Member(BaseModel):
-    member_id: int | str
-    cross_section: str
+class Parameters(BaseModel):
+    truss_length_mm: float
+    truss_width_mm: float
+    truss_height_mm: float
+    n_divisions: int
+    cross_section_mm: float
 
 
 class Model(BaseModel):
-    nodes: dict[str, Node]
-    lines: dict[str, Line]
-    members: dict[str, Member]
+    parameters: Parameters
+    metadata: Metadata
 
 
 class GeometryGeneration(BaseModel):
-    structure_width: float = Field(..., description="Width of the structure in mm")
-    structure_length: float = Field(..., description="Length of the structure in mm")
-    structure_height: float = Field(..., description="Height of the structure in mm")
-    csc_section: Literal["UB200x30", "310UBx46"] = Field(
-        ..., description="Cross-section type"
+    truss_length: float = Field(..., description="Length of the truss beam in mm")
+    truss_width: float = Field(..., description="Width of the truss beam in mm")
+    truss_height: float = Field(..., description="Height of the truss beam in mm")
+    n_divisions: int = Field(default=6, description="Number of divisions in the truss")
+    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
+        default="SHS50x4", description="Cross-section size for truss members"
     )
 
 
@@ -43,9 +41,9 @@ class GeometryGenerationTool(ViktorTool):
     def __init__(
         self,
         geometry: GeometryGeneration,
-        workspace_id: int = 4672,
-        entity_id: int = 2394,
-        method_name: str = "download_model_json",
+        workspace_id: int = 4704,
+        entity_id: int = 2447,
+        method_name: str = "download_geometry_json",
     ):
         super().__init__(workspace_id, entity_id)
         self.geometry = geometry
@@ -79,6 +77,8 @@ class GeometryGenerationTool(ViktorTool):
 
     def run_and_parse(self) -> Model:
         content = self.run_and_download()
+        # Debug: print the actual structure
+        logger.info(f"Response keys: {content.keys()}")
         return Model(**content)
 
 
@@ -88,25 +88,24 @@ async def generate_geometry_func(ctx: Any, args: str) -> str:
     tool = GeometryGenerationTool(geometry=payload)
     model = tool.run_and_parse()
 
-    nodes_count = len(model.nodes)
-    lines_count = len(model.lines)
-    members_count = len(model.members)
+    nodes_count = model.metadata.total_nodes
+    lines_count = model.metadata.total_lines
 
     result_summary = {
         "nodes": nodes_count,
         "lines": lines_count,
-        "members": members_count,
-        "structure_width": payload.structure_width,
-        "structure_length": payload.structure_length,
-        "structure_height": payload.structure_height,
-        "csc_section": payload.csc_section,
+        "truss_length": payload.truss_length,
+        "truss_width": payload.truss_width,
+        "truss_height": payload.truss_height,
+        "n_divisions": payload.n_divisions,
+        "cross_section": payload.cross_section,
     }
 
     return (
-        f"Geometry generated successfully with {nodes_count} nodes, "
-        f"{lines_count} lines, and {members_count} members. "
-        f"Structure dimensions: {payload.structure_width}mm x {payload.structure_length}mm x {payload.structure_height}mm. "
-        f"Cross-section: {payload.csc_section}. "
+        f"Truss geometry generated successfully with {nodes_count} nodes and "
+        f"{lines_count} lines. "
+        f"Truss dimensions: {payload.truss_length}mm x {payload.truss_width}mm x {payload.truss_height}mm. "
+        f"Divisions: {payload.n_divisions}, Cross-section: {payload.cross_section}. "
         f"Result: {json.dumps(result_summary, indent=2)}"
     )
 
@@ -117,9 +116,10 @@ def generate_geometry_tool() -> Any:
     return FunctionTool(
         name="generate_geometry",
         description=(
-            "Generate 3D structural geometry in a viktor app (nodes, lines, members) based on width, length, height, and cross-section. "
-            "Returns a structural model with nodes (3D coordinates), lines (connections between nodes), "
-            "and members (structural elements with assigned cross-sections)."
+            "Generate 3D rectangular truss beam geometry in a VIKTOR app (nodes, lines, members). "
+            "Parameters: truss_length, truss_width, truss_height (all in mm), n_divisions (number of truss divisions), "
+            "and cross_section (SHS50x4, SHS75x4, SHS100x4, or SHS150x4). "
+            "Returns a structural model with nodes (3D coordinates) and lines (connections between nodes)."
         ),
         params_json_schema=GeometryGeneration.model_json_schema(),
         on_invoke_tool=generate_geometry_func,
@@ -127,17 +127,20 @@ def generate_geometry_tool() -> Any:
 
 
 if __name__ == "__main__":
+    import pprint
+
     geometry = GeometryGeneration(
-        structure_height=3000,
-        structure_width=5000,
-        structure_length=5000,
-        csc_section="UB200x30",
+        truss_length=10000,
+        truss_width=1000,
+        truss_height=1500,
+        n_divisions=6,
+        cross_section="SHS100x4",
     )
     tool = GeometryGenerationTool(geometry=geometry)
 
-    # Download the actual JSON content
-    model = tool.run_and_parse()
-
-    import pprint
-
-    pprint.pp(model)
+    # First, let's see the raw JSON structure
+    content = tool.run_and_download()
+    print("=== Raw response keys ===")
+    pprint.pp(list(content.keys()))
+    print("\n=== Full response structure ===")
+    pprint.pp(content)

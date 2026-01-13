@@ -13,7 +13,7 @@ load_dotenv()
 logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VIKTOR_TOKEN = os.getenv("TOKEN_VK_APP") or os.getenv("VIKTOR_TOKEN")
+VIKTOR_TOKEN = os.getenv("TOKEN_VK_APP")
 MAX_POLL_SECONDS = int(os.getenv("VIKTOR_MAX_POLL_SECONDS", "60"))
 
 
