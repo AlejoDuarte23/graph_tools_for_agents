@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import threading
 from pathlib import Path
 from textwrap import dedent
@@ -9,12 +10,15 @@ from agents import Agent, Runner
 
 from app.tools import get_tools
 from app.viktor_tools.plotting_tool import PlotTool
+from app.viktor_tools.table_tool import TableTool
 
 from dotenv import load_dotenv
 
 import plotly.graph_objects as go
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Event loop management for async agent in sync VIKTOR context
 event_loop: asyncio.AbstractEventLoop | None = None
@@ -72,11 +76,14 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             
             3. VISUALIZE DATA: Use visualization tools to display results
                - generate_plotly: Create bar plots from x and y data (agent tool, not a VIKTOR app)
-               This creates visualizations in the Plot view panel.
+               - generate_table: Create tables with optional row/column headers (agent tool, not a VIKTOR app)
+               These create visualizations in the Plot and Table view panels.
+               IMPORTANT: After calling generate_plotly, call show_hide_plot with action="show" to display the Plot view.
+               After calling generate_table, call show_hide_table with action="show" to display the Table view.
             
             Available VIKTOR App Tools (for actual calculations):
             - generate_geometry: Generate 3D rectangular truss beam geometry (nodes, lines, members)
-              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
               Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section
             
             - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
@@ -124,21 +131,33 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - sensitivity_analysis: Sensitivity analysis varying truss height
               → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             
+            OUTPUT NODE TYPES (local visualization tools, NO URL - displayed with dashed border):
+            - plot_output: Bar chart visualization of results
+              → No URL (agent tool, not a VIKTOR app)
+              → Can ONLY depend on sensitivity_analysis (one dependency only)
+              → Maximum ONE plot_output node per workflow
+            - table_output: Table display of results  
+              → No URL (agent tool, not a VIKTOR app)
+              → Can depend on ANY analysis node (geometry_generation, windload_analysis, seismic_analysis, structural_analysis, footing_capacity, footing_design, sensitivity_analysis)
+            
             WORKFLOW COMPOSITION RULES:
-            - Build the SMALLEST workflow that satisfies the user's request
+            - Build the SMALLEST workflow that satisfies the user's request (be generous with table_output nodes)
             - Only add upstream dependencies when the user explicitly asks for end-to-end calculations
             - If user asks for "footing design", create ONLY the footing_design node unless they say "full workflow"
             - If user asks for "wind loads", create ONLY the windload_analysis node
             - Add dependencies (geometry, loads, etc.) ONLY when user mentions them or asks for complete analysis
+            - OUTPUT NODES: plot_output and table_output have NO url field (leave it null/empty)
             
             Workflow dependency reference (use only when building full workflows):
             1. GeometryGeneration first (no dependencies)
             2. WindloadAnalysis depends on geometry_generation
             3. SeismicAnalysis depends on geometry_generation
             4. StructuralAnalysis depends on geometry_generation and load analyses
-            5. SensitivityAnalysis depends on geometry_generation and load analyses
+            5. SensitivityAnalysis depends on geometry_generation and load analyses and structural analysis for exploratory purpose
             6. FootingCapacity depends on geometry_generation
             7. FootingDesign depends on StructuralAnalysis and FootingCapacity
+            8. PlotOutput depends on sensitivity_analysis ONLY (max 1 per workflow)
+            9. TableOutput can depend on any node (Can be added in multiple nodes. But user can visualize just one output at the time be propositive add it in at least two node)
             
             When composing a workflow, use the compose_workflow_graph tool with all nodes
             defined together. Set proper depends_on relationships between nodes.
@@ -161,16 +180,39 @@ def get_visibility(params, **kwargs):
     if not params.chat:
         entities = vkt.Storage().list(scope="entity")
         for entity in entities:
+            if entity == "show_plot":
+                vkt.Storage().delete("show_plot", scope="entity")
             if entity == "PlotTool":
                 vkt.Storage().delete("PlotTool", scope="entity")
 
     try:
-        out_bool = vkt.Storage().get("PlotTool", scope="entity").getvalue()
-        if out_bool:
+        out_bool = vkt.Storage().get("show_plot", scope="entity").getvalue()
+        print(f"{out_bool=}")
+        if out_bool == "show":
             return True
         return False
     except Exception:
-        # If there is no data, then view is hiden.
+        # If there is no data, then view is hidden.
+        return False
+
+
+def get_table_visibility(params, **kwargs):
+    if not params.chat:
+        entities = vkt.Storage().list(scope="entity")
+        for entity in entities:
+            if entity == "show_table":
+                vkt.Storage().delete("show_table", scope="entity")
+            if entity == "TableTool":
+                vkt.Storage().delete("TableTool", scope="entity")
+
+    try:
+        out_bool = vkt.Storage().get("show_table", scope="entity").getvalue()
+        print(f"{out_bool=}")
+        if out_bool == "show":
+            return True
+        return False
+    except Exception:
+        # If there is no data, then view is hidden.
         return False
 
 
@@ -264,7 +306,7 @@ class Controller(vkt.Controller):
         placeholder_html = "<!DOCTYPE html><html><head><style>body { margin: 0; background-color: white; }</style></head><body></body></html>"
         return vkt.WebResult(html=placeholder_html)
 
-    @vkt.PlotlyView("Plot", width=100, visible=get_visibility)
+    @vkt.PlotlyView("Plot Tool", width=100, visible=get_visibility)
     def plot_view(self, params, **kwargs) -> vkt.PlotlyResult:
         if not params.chat:
             try:
@@ -273,14 +315,40 @@ class Controller(vkt.Controller):
                 pass
         try:
             raw = vkt.Storage().get("PlotTool", scope="entity").getvalue()  # str
-            print(f"{raw}=")
+            logger.info(f"Plot raw data: {raw}")
             tool_input = PlotTool.model_validate(json.loads(raw))
+            logger.info(f"Plot tool_input: {tool_input}")
 
             fig = go.Figure(
                 data=[go.Bar(x=tool_input.x, y=tool_input.y)],
                 layout=go.Layout(title="Bar Plot"),
             )
-        except Exception:
+        except Exception as e:
+            logger.exception(f"Error in plot_view: {e}")
             fig = go.Figure()
 
         return vkt.PlotlyResult(fig.to_json())
+
+    @vkt.TableView("Table Tool", width=100, visible=get_table_visibility)
+    def table_view(self, params, **kwargs) -> vkt.TableResult:
+        if not params.chat:
+            try:
+                vkt.Storage().delete("TableTool", scope="entity")
+            except Exception:
+                pass
+        try:
+            raw = (
+                vkt.Storage()
+                .get("TableTool", scope="entity")
+                .getvalue_binary()
+                .decode("utf-8")
+            )
+            logger.info(f"Table raw data: {raw}")
+            tool_input = TableTool.model_validate_json(raw)
+            logger.info(f"Table tool_input: {tool_input}")
+            return vkt.TableResult(
+                data=tool_input.data, column_headers=tool_input.column_headers
+            )
+        except Exception as e:
+            logger.exception(f"Error in table_view: {e}")
+            return vkt.TableResult([["Error", "using Tool"]])

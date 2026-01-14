@@ -47,6 +47,13 @@ class WorkflowViewer:
       <main id="stage">
         <svg id="edges"></svg>
         <div id="nodes"></div>
+        <div class="zoom-controls">
+          <button id="zoom-in" title="Zoom In">+</button>
+          <button id="zoom-out" title="Zoom Out">−</button>
+          <div class="zoom-divider"></div>
+          <button id="zoom-fit" title="Fit to View">⊡</button>
+          <button id="zoom-reset" title="Reset View">↺</button>
+        </div>
       </main>
     </div>
 
@@ -66,10 +73,20 @@ class WorkflowViewer:
       graph.setData(workflow);
       graph.relayout({{ resetDragged: true }});
       graph.render();
+      
+      // Auto-fit to view on initial load
+      setTimeout(() => graph.fitToView(), 50);
+
+      // Zoom control buttons
+      document.getElementById("zoom-in").addEventListener("click", () => graph.zoomIn());
+      document.getElementById("zoom-out").addEventListener("click", () => graph.zoomOut());
+      document.getElementById("zoom-fit").addEventListener("click", () => graph.fitToView());
+      document.getElementById("zoom-reset").addEventListener("click", () => graph.resetView());
 
       window.addEventListener("resize", () => {{
         graph.relayout({{ resetDragged: false }});
         graph.render();
+        graph.fitToView();
       }});
     </script>
   </body>
