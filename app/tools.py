@@ -68,11 +68,14 @@ class DummyWorkflowNode(BaseModel):
         "structural_analysis",
         "footing_capacity",
         "footing_design",
+        "sensitivity_analysis",
+        "plot_output",
+        "table_output",
     ] = Field(..., description="Type of workflow node to add to the graph")
     label: str = Field(..., description="Human-readable label for the node")
     url: str | None = Field(
         default=None,
-        description="URL to the VIKTOR app tool (optional, falls back to default if not provided)",
+        description="URL to the VIKTOR app tool. Leave empty/null for output nodes (plot_output, table_output) as they are local visualization tools without URLs.",
     )
     inputs: Json[Any] = Field(
         default="{}",
@@ -118,7 +121,7 @@ class ComposeWorkflowGraphArgs(BaseModel):
     ] = "workflow_graph/generated_workflows"
     write_workflow_json: Annotated[
         bool, Field(description="Also write a `workflow.json` artifact")
-    ] = True
+    ] = False
 
 
 def toposort_edges(nodes: list[str], edges: list[tuple[str, str]]) -> bool:
@@ -169,8 +172,9 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
     from app.workflow_graph.models import Connection, Node, Workflow
     from app.workflow_graph.viewer import WorkflowViewer
 
-    # Default fallback URL
+    # Default fallback URL (not applied to output nodes)
     default_url = "https://beta.viktor.ai/workspaces/4672/app/editor/2394"
+    output_node_types = {"plot_output", "table_output"}
 
     workflow = Workflow(
         nodes=[
@@ -178,7 +182,9 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
                 id=n.node_id,
                 title=n.label,
                 type=n.node_type,
-                url=n.url or default_url,
+                url=None
+                if n.node_type in output_node_types
+                else (n.url or default_url),
                 depends_on=[Connection(node_id=d) for d in n.depends_on],
             )
             for n in payload.nodes

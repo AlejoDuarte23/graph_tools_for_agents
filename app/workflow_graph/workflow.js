@@ -70,6 +70,27 @@ export class WorkflowGraph {
           <polyline points="17 7 21 7 21 11"></polyline>
         </svg>`
       },
+      plot_output: { 
+        bg: "#FFFFFF",
+        isOutput: true,
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+          <rect x="2" y="2" width="20" height="20" rx="2"></rect>
+        </svg>`
+      },
+      table_output: { 
+        bg: "#FFFFFF",
+        isOutput: true,
+        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="3" y1="15" x2="21" y2="15"></line>
+          <line x1="9" y1="3" x2="9" y2="21"></line>
+          <line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>`
+      },
       default: { 
         bg: "#E5E5E5",
         icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -87,6 +108,126 @@ export class WorkflowGraph {
     this.dragged = new Set();
     this.activeId = null;
     this.running = false;
+
+    // Zoom and pan state
+    this.scale = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this.isPanning = false;
+    this.panStartX = 0;
+    this.panStartY = 0;
+    this.panOriginX = 0;
+    this.panOriginY = 0;
+
+    this._setupPanZoom();
+  }
+
+  _setupPanZoom() {
+    // Mouse wheel zoom
+    this.stage.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.min(2, Math.max(0.3, this.scale * delta));
+      
+      // Zoom toward mouse position
+      const rect = this.stage.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      
+      const scaleChange = newScale / this.scale;
+      this.panX = mouseX - (mouseX - this.panX) * scaleChange;
+      this.panY = mouseY - (mouseY - this.panY) * scaleChange;
+      this.scale = newScale;
+      
+      this._applyTransform();
+    }, { passive: false });
+
+    // Pan with middle mouse or when holding space
+    this.stage.addEventListener("pointerdown", (e) => {
+      if (e.button === 1 || (e.button === 0 && e.target === this.stage)) {
+        this.isPanning = true;
+        this.panStartX = e.clientX;
+        this.panStartY = e.clientY;
+        this.panOriginX = this.panX;
+        this.panOriginY = this.panY;
+        this.stage.style.cursor = "grabbing";
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener("pointermove", (e) => {
+      if (!this.isPanning) return;
+      this.panX = this.panOriginX + (e.clientX - this.panStartX);
+      this.panY = this.panOriginY + (e.clientY - this.panStartY);
+      this._applyTransform();
+    });
+
+    window.addEventListener("pointerup", () => {
+      if (this.isPanning) {
+        this.isPanning = false;
+        this.stage.style.cursor = "";
+      }
+    });
+  }
+
+  _applyTransform() {
+    const transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
+    this.nodesHost.style.transform = transform;
+    this.edgesSvg.style.transform = transform;
+  }
+
+  zoomIn() {
+    this.scale = Math.min(2, this.scale * 1.2);
+    this._applyTransform();
+  }
+
+  zoomOut() {
+    this.scale = Math.max(0.3, this.scale / 1.2);
+    this._applyTransform();
+  }
+
+  fitToView() {
+    const nodes = Array.isArray(this.data.nodes) ? this.data.nodes : [];
+    if (nodes.length === 0) return;
+
+    // Find bounding box of all nodes
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      const pos = this.positions.get(n.id);
+      if (!pos) continue;
+      minX = Math.min(minX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxX = Math.max(maxX, pos.x + this.NODE_W);
+      maxY = Math.max(maxY, pos.y + this.NODE_H);
+    }
+
+    if (minX === Infinity) return;
+
+    const contentW = maxX - minX;
+    const contentH = maxY - minY;
+    const stageW = this.stage.clientWidth;
+    const stageH = this.stage.clientHeight;
+    const padding = 60;
+
+    // Calculate scale to fit
+    const scaleX = (stageW - padding * 2) / contentW;
+    const scaleY = (stageH - padding * 2) / contentH;
+    this.scale = Math.min(1, Math.min(scaleX, scaleY)); // Don't zoom in beyond 100%
+
+    // Center the content
+    const scaledW = contentW * this.scale;
+    const scaledH = contentH * this.scale;
+    this.panX = (stageW - scaledW) / 2 - minX * this.scale;
+    this.panY = (stageH - scaledH) / 2 - minY * this.scale;
+
+    this._applyTransform();
+  }
+
+  resetView() {
+    this.scale = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this._applyTransform();
   }
 
   nodeCount() { return (this.data.nodes || []).length; }
@@ -266,7 +407,7 @@ export class WorkflowGraph {
       const style = this.typeStyles[n.type] || this.typeStyles.default;
 
       const el = document.createElement("div");
-      el.className = "node";
+      el.className = style.isOutput ? "node output-node" : "node";
       el.dataset.id = n.id;
       el.style.left = pos.x + "px";
       el.style.top = pos.y + "px";
