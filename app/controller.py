@@ -1,12 +1,18 @@
 import asyncio
 import json
 import logging
+import queue
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 from textwrap import dedent
+from typing import Any
+from collections.abc import Callable
 
 import viktor as vkt
 from agents import Agent, Runner
+from openai.types.responses import ResponseTextDeltaEvent
+from agents import set_tracing_disabled
 
 from app.tools import get_tools
 from app.viktor_tools.plotting_tool import PlotTool
@@ -23,6 +29,8 @@ logger = logging.getLogger(__name__)
 # Event loop management for async agent in sync VIKTOR context
 event_loop: asyncio.AbstractEventLoop | None = None
 event_loop_thread: threading.Thread | None = None
+
+set_tracing_disabled(True)
 
 
 def ensure_loop() -> asyncio.AbstractEventLoop:
@@ -45,12 +53,60 @@ def run_async(coro):
     return fut.result()
 
 
-async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
-    """Async agent that helps users create workflow graphs."""
-    agent = Agent(
-        name="Workflow Assistant",
-        instructions=dedent(
-            """You are a helpful assistant that creates structural engineering workflows.
+def _extract_call_id(raw: Any) -> str | None:
+    if isinstance(raw, dict):
+        return (raw.get("call_id") or raw.get("id") or raw.get("tool_call_id")) and str(
+            raw.get("call_id") or raw.get("id") or raw.get("tool_call_id")
+        )
+    for attr in ("call_id", "id", "tool_call_id"):
+        v = getattr(raw, attr, None)
+        if v:
+            return str(v)
+    return None
+
+
+def _extract_tool_name(raw: Any) -> str:
+    # Responses function-call items typically have a top-level "name" (or equivalent)
+    if isinstance(raw, dict):
+        if raw.get("name"):
+            return str(raw["name"])
+        fn = raw.get("function")
+        if isinstance(fn, dict) and fn.get("name"):
+            return str(fn["name"])
+        if raw.get("tool_name"):
+            return str(raw["tool_name"])
+    for attr in ("name", "tool_name", "function_name"):
+        v = getattr(raw, attr, None)
+        if v:
+            return str(v)
+    fn = getattr(raw, "function", None)
+    if fn is not None and getattr(fn, "name", None):
+        return str(fn.name)
+    return "tool"
+
+
+def workflow_agent_sync_stream(
+    chat_history: list[dict[str, str]],
+    *,
+    on_done: Callable[[], None] | None = None,
+    show_tool_progress: bool = True,
+) -> Iterator[str]:
+    """
+    Sync generator for vkt.ChatResult that streams agent output token-by-token
+    using Runner.run_streamed + result.stream_events().
+    """
+    q: queue.Queue[object] = queue.Queue()
+    sentinel = object()
+
+    loop = ensure_loop()
+
+    async def _produce() -> None:
+        call_id_to_name: dict[str, str] = {}
+        try:
+            agent = Agent(
+                name="Workflow Assistant",
+                instructions=dedent(
+                    """You are a helpful assistant that creates structural engineering workflows.
             
             STYLE RULES:
             - Be succinct and friendly - avoid over-elaboration
@@ -117,7 +173,7 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             
             Available workflow node types (for visualization with URLs):
             - geometry_generation: Define truss beam geometry (truss_length, truss_width, truss_height, n_divisions, cross_section)
-              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              → Use URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
               → Use URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
             - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
@@ -167,13 +223,62 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             - Execute actual calculations using VIKTOR app tools
            
             """
-        ),
-        model="gpt-5-mini",
-        tools=get_tools(),
-    )
+                ),
+                model="gpt-5-mini",
+                tools=get_tools(),
+            )
 
-    result = await Runner.run(agent, input=chat_history)  # type: ignore[arg-type]
-    return result.final_output
+            # Streamed run (no await here); events are consumed via async iterator.
+            result = Runner.run_streamed(agent, input=chat_history)  # type: ignore[arg-type]
+
+            async for event in result.stream_events():
+                # Token streaming from raw response delta events
+                if event.type == "raw_response_event" and isinstance(
+                    event.data, ResponseTextDeltaEvent
+                ):
+                    if event.data.delta:
+                        q.put(event.data.delta)
+                    continue
+
+                if not show_tool_progress:
+                    continue
+
+                # Higher-level run item events (tool called/output, etc.)
+                if event.type == "run_item_stream_event":
+                    item = event.item
+                    raw = getattr(item, "raw_item", None)
+
+                    if event.name == "tool_called":
+                        cid = _extract_call_id(raw)
+                        tool_name = _extract_tool_name(raw)
+                        if cid:
+                            call_id_to_name[cid] = tool_name
+                        q.put(f"\n\n🔧 Running `{tool_name}`...\n")
+                        continue
+
+                    if event.name == "tool_output":
+                        cid = _extract_call_id(raw)
+                        tool_name = call_id_to_name.get(cid or "", "tool")
+                        q.put(f"\n✅ Finished `{tool_name}`.\n")
+                        continue
+
+        except Exception as e:
+            q.put(f"\n\n⚠️ {type(e).__name__}: {e}\n")
+        finally:
+            q.put(sentinel)
+
+    asyncio.run_coroutine_threadsafe(_produce(), loop)
+
+    def _gen() -> Iterator[str]:
+        while True:
+            item = q.get()
+            if item is sentinel:
+                break
+            yield item  # type: ignore[misc]
+        if on_done:
+            on_done()
+
+    return _gen()
 
 
 def get_visibility(params, **kwargs):
@@ -216,11 +321,6 @@ def get_table_visibility(params, **kwargs):
         return False
 
 
-def workflow_agent_sync(chat_history: list[dict[str, str]]) -> str:
-    """Synchronous wrapper for the async agent."""
-    return run_async(workflow_agent(chat_history))
-
-
 class Parametrization(vkt.Parametrization):
     title = vkt.Text("""# 🏗️ VIKTOR Workflow Agent
     
@@ -246,12 +346,13 @@ class Controller(vkt.Controller):
         messages = params.chat.get_messages()
         chat_history = [{"role": m["role"], "content": m["content"]} for m in messages]
 
-        response = workflow_agent_sync(chat_history)
+        text_stream = workflow_agent_sync_stream(
+            chat_history,
+            on_done=self._update_workflow_storage,  # run after stream completes
+            show_tool_progress=True,  # emoji tool status lines
+        )
 
-        # Check for generated workflow HTML and store path
-        self._update_workflow_storage()
-
-        return vkt.ChatResult(params.chat, response)
+        return vkt.ChatResult(params.chat, text_stream)
 
     def _update_workflow_storage(self) -> None:
         """Scan for generated workflows and store the latest one."""
