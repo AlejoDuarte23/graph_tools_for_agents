@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import threading
 from pathlib import Path
 from textwrap import dedent
@@ -9,12 +10,15 @@ from agents import Agent, Runner
 
 from app.tools import get_tools
 from app.viktor_tools.plotting_tool import PlotTool
+from app.viktor_tools.table_tool import TableTool
 
 from dotenv import load_dotenv
 
 import plotly.graph_objects as go
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Event loop management for async agent in sync VIKTOR context
 event_loop: asyncio.AbstractEventLoop | None = None
@@ -72,7 +76,10 @@ async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
             
             3. VISUALIZE DATA: Use visualization tools to display results
                - generate_plotly: Create bar plots from x and y data (agent tool, not a VIKTOR app)
-               This creates visualizations in the Plot view panel.
+               - generate_table: Create tables with optional row/column headers (agent tool, not a VIKTOR app)
+               These create visualizations in the Plot and Table view panels.
+               IMPORTANT: After calling generate_plotly, call show_hide_plot with action="show" to display the Plot view.
+               After calling generate_table, call show_hide_table with action="show" to display the Table view.
             
             Available VIKTOR App Tools (for actual calculations):
             - generate_geometry: Generate 3D rectangular truss beam geometry (nodes, lines, members)
@@ -161,16 +168,39 @@ def get_visibility(params, **kwargs):
     if not params.chat:
         entities = vkt.Storage().list(scope="entity")
         for entity in entities:
+            if entity == "show_plot":
+                vkt.Storage().delete("show_plot", scope="entity")
             if entity == "PlotTool":
                 vkt.Storage().delete("PlotTool", scope="entity")
 
     try:
-        out_bool = vkt.Storage().get("PlotTool", scope="entity").getvalue()
-        if out_bool:
+        out_bool = vkt.Storage().get("show_plot", scope="entity").getvalue()
+        print(f"{out_bool=}")
+        if out_bool == "show":
             return True
         return False
     except Exception:
-        # If there is no data, then view is hiden.
+        # If there is no data, then view is hidden.
+        return False
+
+
+def get_table_visibility(params, **kwargs):
+    if not params.chat:
+        entities = vkt.Storage().list(scope="entity")
+        for entity in entities:
+            if entity == "show_table":
+                vkt.Storage().delete("show_table", scope="entity")
+            if entity == "TableTool":
+                vkt.Storage().delete("TableTool", scope="entity")
+
+    try:
+        out_bool = vkt.Storage().get("show_table", scope="entity").getvalue()
+        print(f"{out_bool=}")
+        if out_bool == "show":
+            return True
+        return False
+    except Exception:
+        # If there is no data, then view is hidden.
         return False
 
 
@@ -273,14 +303,40 @@ class Controller(vkt.Controller):
                 pass
         try:
             raw = vkt.Storage().get("PlotTool", scope="entity").getvalue()  # str
-            print(f"{raw}=")
+            logger.info(f"Plot raw data: {raw}")
             tool_input = PlotTool.model_validate(json.loads(raw))
+            logger.info(f"Plot tool_input: {tool_input}")
 
             fig = go.Figure(
                 data=[go.Bar(x=tool_input.x, y=tool_input.y)],
                 layout=go.Layout(title="Bar Plot"),
             )
-        except Exception:
+        except Exception as e:
+            logger.exception(f"Error in plot_view: {e}")
             fig = go.Figure()
 
         return vkt.PlotlyResult(fig.to_json())
+
+    @vkt.TableView("Table", width=100, visible=get_table_visibility)
+    def table_view(self, params, **kwargs) -> vkt.TableResult:
+        if not params.chat:
+            try:
+                vkt.Storage().delete("TableTool", scope="entity")
+            except Exception:
+                pass
+        try:
+            raw = (
+                vkt.Storage()
+                .get("TableTool", scope="entity")
+                .getvalue_binary()
+                .decode("utf-8")
+            )
+            logger.info(f"Table raw data: {raw}")
+            tool_input = TableTool.model_validate_json(raw)
+            logger.info(f"Table tool_input: {tool_input}")
+            return vkt.TableResult(
+                data=tool_input.data, column_headers=tool_input.column_headers
+            )
+        except Exception as e:
+            logger.exception(f"Error in table_view: {e}")
+            return vkt.TableResult([["Error", "using Tool"]])

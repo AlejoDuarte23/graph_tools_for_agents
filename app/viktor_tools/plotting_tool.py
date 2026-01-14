@@ -1,6 +1,6 @@
 import viktor as vkt
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, Literal
 
 
 class PlotTool(BaseModel):
@@ -8,6 +8,15 @@ class PlotTool(BaseModel):
 
     x: list[float] = Field(..., description="X-axis values")
     y: list[float] = Field(..., description="Y-axis values")
+
+
+class ShowHidePlotArgs(BaseModel):
+    """Arguments for show/hide plot tool"""
+
+    action: Literal["show", "hide"] = Field(
+        ...,
+        description="Action to perform: 'show' to display the plot view, 'hide' to hide it",
+    )
 
 
 async def display_dashboard_func(ctx: Any, args: str) -> str | None:
@@ -25,6 +34,25 @@ async def display_dashboard_func(ctx: Any, args: str) -> str | None:
     return f"Validation error Incorrect Outputs {args}"
 
 
+async def show_hide_plot_func(ctx: Any, args: str) -> str:
+    """Show or hide the plot view."""
+    payload = ShowHidePlotArgs.model_validate_json(args)
+    action = payload.action
+
+    if action == "show":
+        print("Showing Plot View")
+    else:
+        print("Hiding Plot View")
+
+    vkt.Storage().set(
+        "show_plot",
+        data=vkt.File.from_data(action),
+        scope="entity",
+    )
+    print(f"Plot Visibility State Changed to {action}")
+    return f"Plot Visibility State Changed to {action}"
+
+
 def generate_plot() -> Any:
     from agents import FunctionTool
 
@@ -37,4 +65,18 @@ def generate_plot() -> Any:
         ),
         params_json_schema=PlotTool.model_json_schema(),
         on_invoke_tool=display_dashboard_func,
+    )
+
+
+def show_hide_plot_tool() -> Any:
+    from agents import FunctionTool
+
+    return FunctionTool(
+        name="show_hide_plot",
+        description=(
+            "Show or hide the Plot view panel. "
+            "Pass 'show' to display the plot view, 'hide' to hide it."
+        ),
+        params_json_schema=ShowHidePlotArgs.model_json_schema(),
+        on_invoke_tool=show_hide_plot_func,
     )

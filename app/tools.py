@@ -12,7 +12,8 @@ from app.viktor_tools.structural_analysis_tool import calculate_structural_analy
 from app.viktor_tools.sensitivity_analysis_tool import (
     calculate_sensitivity_analysis_tool,
 )
-from app.viktor_tools.plotting_tool import generate_plot
+from app.viktor_tools.plotting_tool import generate_plot, show_hide_plot_tool
+from app.viktor_tools.table_tool import generate_table, show_hide_table_tool
 
 
 class Workflow(BaseModel):
@@ -245,4 +246,7 @@ def get_tools() -> list[Any]:
         calculate_structural_analysis_tool(),
         calculate_sensitivity_analysis_tool(),
         generate_plot(),
+        generate_table(),
+        show_hide_plot_tool(),
+        show_hide_table_tool(),
     ]
