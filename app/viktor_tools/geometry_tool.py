@@ -27,12 +27,12 @@ class Model(BaseModel):
 
 
 class GeometryGeneration(BaseModel):
-    truss_length: float = Field(..., description="Length of the truss beam in mm")
-    truss_width: float = Field(..., description="Width of the truss beam in mm")
-    truss_height: float = Field(..., description="Height of the truss beam in mm")
-    n_divisions: int = Field(default=6, description="Number of divisions in the truss")
+    truss_length: float = Field(default=10000, description="Truss length in mm")
+    truss_width: float = Field(default=1100, description="Truss width in mm")
+    truss_height: float = Field(default=1500, description="Truss height in mm")
+    n_divisions: int = Field(default=8, description="Number of divisions")
     cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS50x4", description="Cross-section size for truss members"
+        default="SHS100x4", description="Cross-section size for truss members"
     )
 
 
