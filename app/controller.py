@@ -1,12 +1,17 @@
 import asyncio
 import json
 import logging
+import queue
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 from textwrap import dedent
+from typing import Any
+from collections.abc import Callable
 
 import viktor as vkt
 from agents import Agent, Runner
+from openai.types.responses import ResponseTextDeltaEvent
 
 from app.tools import get_tools
 from app.viktor_tools.plotting_tool import PlotTool
@@ -43,6 +48,241 @@ def run_async(coro):
     loop = ensure_loop()
     fut = asyncio.run_coroutine_threadsafe(coro, loop)
     return fut.result()
+
+
+def _extract_call_id(raw: Any) -> str | None:
+    if isinstance(raw, dict):
+        return (raw.get("call_id") or raw.get("id") or raw.get("tool_call_id")) and str(
+            raw.get("call_id") or raw.get("id") or raw.get("tool_call_id")
+        )
+    for attr in ("call_id", "id", "tool_call_id"):
+        v = getattr(raw, attr, None)
+        if v:
+            return str(v)
+    return None
+
+
+def _extract_tool_name(raw: Any) -> str:
+    # Responses function-call items typically have a top-level "name" (or equivalent)
+    if isinstance(raw, dict):
+        if raw.get("name"):
+            return str(raw["name"])
+        fn = raw.get("function")
+        if isinstance(fn, dict) and fn.get("name"):
+            return str(fn["name"])
+        if raw.get("tool_name"):
+            return str(raw["tool_name"])
+    for attr in ("name", "tool_name", "function_name"):
+        v = getattr(raw, attr, None)
+        if v:
+            return str(v)
+    fn = getattr(raw, "function", None)
+    if fn is not None and getattr(fn, "name", None):
+        return str(fn.name)
+    return "tool"
+
+
+def workflow_agent_sync_stream(
+    chat_history: list[dict[str, str]],
+    *,
+    on_done: Callable[[], None] | None = None,
+    show_tool_progress: bool = True,
+) -> Iterator[str]:
+    """
+    Sync generator for vkt.ChatResult that streams agent output token-by-token
+    using Runner.run_streamed + result.stream_events().
+    """
+    q: queue.Queue[object] = queue.Queue()
+    sentinel = object()
+
+    loop = ensure_loop()
+
+    async def _produce() -> None:
+        call_id_to_name: dict[str, str] = {}
+        try:
+            agent = Agent(
+                name="Workflow Assistant",
+                instructions=dedent(
+                    """You are a helpful assistant that creates structural engineering workflows.
+            
+            STYLE RULES:
+            - Be succinct and friendly - avoid over-elaboration
+            - Don't aggressively propose actions - wait for user direction
+            - Provide clear, concise responses
+            - Only suggest next steps when explicitly asked or when clarification is needed
+            
+            YOU HAVE TWO MAIN ROLES:
+            
+            1. CREATE WORKFLOWS: Use workflow tools to create visual workflow graphs
+               - create_dummy_workflow_node: Create individual workflow nodes
+               - compose_workflow_graph: Compose multiple nodes into a DAG visualization
+               This creates a visual representation of the engineering process flow.
+            
+            2. PERFORM CALCULATIONS: Use VIKTOR app tools to execute actual engineering calculations
+               - generate_geometry: Generate 3D structural geometry
+               - calculate_wind_loads: Perform wind load analysis
+               - calculate_seismic_loads: Perform seismic load analysis
+               - calculate_footing_capacity: Perform footing capacity calculations
+               - calculate_structural_analysis: Perform structural analysis on truss beams
+               - calculate_sensitivity_analysis: Run sensitivity analysis on truss height
+               These tools call real VIKTOR applications and return actual engineering results.
+            
+            3. VISUALIZE DATA: Use visualization tools to display results
+               - generate_plotly: Create bar plots from x and y data (agent tool, not a VIKTOR app)
+               - generate_table: Create tables with optional row/column headers (agent tool, not a VIKTOR app)
+               These create visualizations in the Plot and Table view panels.
+               IMPORTANT: After calling generate_plotly, call show_hide_plot with action="show" to display the Plot view.
+               After calling generate_table, call show_hide_table with action="show" to display the Table view.
+            
+            Available VIKTOR App Tools (for actual calculations):
+            - generate_geometry: Generate 3D rectangular truss beam geometry (nodes, lines, members)
+              URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
+              Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section
+            
+            - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
+              URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
+              Parameters: risk_category, wind_speed_ms, exposure_category, truss dimensions
+            
+            - calculate_seismic_loads: Calculate seismic loads and design response spectrum
+              URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
+              Parameters: soil_category, region, importance_level, tl_s, max_period_s
+            
+            - calculate_footing_capacity: Calculate bearing capacity and sliding resistance
+              URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
+              Parameters: footing dimensions (B, L, Df, t), soil properties, loads, safety factors
+            
+            - calculate_structural_analysis: Run structural analysis on rectangular truss beams
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, truss_height, n_divisions, cross_section, load_q, wind_pressure
+            
+            - calculate_sensitivity_analysis: Run sensitivity analysis varying truss height
+              URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+              Parameters: truss_length, truss_width, n_divisions, cross_section, load_q, wind_pressure, min_height, max_height, n_steps
+            
+            Available Agent Tools (local visualization, not VIKTOR apps):
+            - generate_plotly: Generate bar plots for data visualization
+              Parameters: x (list of floats), y (list of floats)
+              Creates a Plotly bar chart displayed in the Plot view panel
+            
+            IMPORTANT: When creating workflow nodes, include the corresponding URL from above.
+            For node types without explicit tool URLs (footing_design),
+            use the default URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+            
+            Available workflow node types (for visualization with URLs):
+            - geometry_generation: Define truss beam geometry (truss_length, truss_width, truss_height, n_divisions, cross_section)
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+            - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
+              → Use URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
+            - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
+              → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
+            - structural_analysis: Structural analysis on truss beams with load combinations
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+            - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
+              → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
+            - footing_design: Design footings (requires reaction_loads and footing_capacity)
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437 (default)
+            - sensitivity_analysis: Sensitivity analysis varying truss height
+              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
+            
+            OUTPUT NODE TYPES (local visualization tools, NO URL - displayed with dashed border):
+            - plot_output: Bar chart visualization of results
+              → No URL (agent tool, not a VIKTOR app)
+              → Can ONLY depend on sensitivity_analysis (one dependency only)
+              → Maximum ONE plot_output node per workflow
+            - table_output: Table display of results  
+              → No URL (agent tool, not a VIKTOR app)
+              → Can depend on ANY analysis node (geometry_generation, windload_analysis, seismic_analysis, structural_analysis, footing_capacity, footing_design, sensitivity_analysis)
+            
+            WORKFLOW COMPOSITION RULES:
+            - Build the SMALLEST workflow that satisfies the user's request (be generous with table_output nodes)
+            - Only add upstream dependencies when the user explicitly asks for end-to-end calculations
+            - If user asks for "footing design", create ONLY the footing_design node unless they say "full workflow"
+            - If user asks for "wind loads", create ONLY the windload_analysis node
+            - Add dependencies (geometry, loads, etc.) ONLY when user mentions them or asks for complete analysis
+            - OUTPUT NODES: plot_output and table_output have NO url field (leave it null/empty)
+            
+            Workflow dependency reference (use only when building full workflows):
+            1. GeometryGeneration first (no dependencies)
+            2. WindloadAnalysis depends on geometry_generation
+            3. SeismicAnalysis depends on geometry_generation
+            4. StructuralAnalysis depends on geometry_generation and load analyses
+            5. SensitivityAnalysis depends on geometry_generation and load analyses and structural analysis for exploratory purpose
+            6. FootingCapacity depends on geometry_generation
+            7. FootingDesign depends on StructuralAnalysis and FootingCapacity
+            8. PlotOutput depends on sensitivity_analysis ONLY (max 1 per workflow)
+            9. TableOutput can depend on any node (Can be added in multiple nodes. But user can visualize just one output at the time be propositive add it in at least two node)
+            
+            When composing a workflow, use the compose_workflow_graph tool with all nodes
+            defined together. Set proper depends_on relationships between nodes.
+            
+            You can either:
+            - Create workflow visualizations to show the process flow
+            - Execute actual calculations using VIKTOR app tools
+           
+            """
+                ),
+                model="gpt-5-mini",
+                tools=get_tools(),
+            )
+
+            # Streamed run (no await here); events are consumed via async iterator.
+            result = Runner.run_streamed(agent, input=chat_history)  # type: ignore[arg-type]
+
+            async for event in result.stream_events():
+                # Token streaming from raw response delta events
+                if event.type == "raw_response_event" and isinstance(
+                    event.data, ResponseTextDeltaEvent
+                ):
+                    if event.data.delta:
+                        q.put(event.data.delta)
+                    continue
+
+                if not show_tool_progress:
+                    continue
+
+                # Higher-level run item events (tool called/output, etc.)
+                if event.type == "run_item_stream_event":
+                    item = event.item
+                    raw = getattr(item, "raw_item", None)
+
+                    if event.name == "tool_called":
+                        cid = _extract_call_id(raw)
+                        tool_name = _extract_tool_name(raw)
+                        if cid:
+                            call_id_to_name[cid] = tool_name
+                        q.put(f"\n\n🔧 Running `{tool_name}`...\n")
+                        continue
+
+                    if event.name == "tool_output":
+                        cid = _extract_call_id(raw)
+                        tool_name = call_id_to_name.get(cid or "", "tool")
+                        q.put(f"\n✅ Finished `{tool_name}`.\n")
+                        continue
+
+                # Agent handoff/updates (optional)
+                if event.type == "agent_updated_stream_event":
+                    try:
+                        q.put(f"\n\n🤝 Agent updated: {event.new_agent.name}\n")
+                    except Exception:
+                        q.put("\n\n🤝 Agent updated\n")
+
+        except Exception as e:
+            q.put(f"\n\n⚠️ {type(e).__name__}: {e}\n")
+        finally:
+            q.put(sentinel)
+
+    asyncio.run_coroutine_threadsafe(_produce(), loop)
+
+    def _gen() -> Iterator[str]:
+        while True:
+            item = q.get()
+            if item is sentinel:
+                break
+            yield item  # type: ignore[misc]
+        if on_done:
+            on_done()
+
+    return _gen()
 
 
 async def workflow_agent(chat_history: list[dict[str, str]]) -> str:
@@ -246,12 +486,13 @@ class Controller(vkt.Controller):
         messages = params.chat.get_messages()
         chat_history = [{"role": m["role"], "content": m["content"]} for m in messages]
 
-        response = workflow_agent_sync(chat_history)
+        text_stream = workflow_agent_sync_stream(
+            chat_history,
+            on_done=self._update_workflow_storage,  # run after stream completes
+            show_tool_progress=True,  # emoji tool status lines
+        )
 
-        # Check for generated workflow HTML and store path
-        self._update_workflow_storage()
-
-        return vkt.ChatResult(params.chat, response)
+        return vkt.ChatResult(params.chat, text_stream)
 
     def _update_workflow_storage(self) -> None:
         """Scan for generated workflows and store the latest one."""
