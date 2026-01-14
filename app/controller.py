@@ -320,8 +320,20 @@ class Controller(vkt.Controller):
             logger.info(f"Plot tool_input: {tool_input}")
 
             fig = go.Figure(
-                data=[go.Bar(x=tool_input.x, y=tool_input.y)],
-                layout=go.Layout(title="Bar Plot"),
+                data=[
+                    go.Scatter(
+                        x=tool_input.x,
+                        y=tool_input.y,
+                        mode="lines+markers",
+                        line=dict(color="blue", width=2),
+                        marker=dict(color="red", size=8),
+                    )
+                ],
+                layout=go.Layout(
+                    title="Line Plot",
+                    xaxis_title=tool_input.xlabel,
+                    yaxis_title=tool_input.ylabel,
+                ),
             )
         except Exception as e:
             logger.exception(f"Error in plot_view: {e}")

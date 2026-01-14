@@ -4,10 +4,12 @@ from typing import Any, Literal
 
 
 class PlotTool(BaseModel):
-    """Arguments for a bar-plot tool"""
+    """Arguments for a line plot tool"""
 
     x: list[float] = Field(..., description="X-axis values")
     y: list[float] = Field(..., description="Y-axis values")
+    xlabel: str = Field(default="X", description="Label for the X-axis")
+    ylabel: str = Field(default="Y", description="Label for the Y-axis")
 
 
 class ShowHidePlotArgs(BaseModel):
@@ -59,8 +61,8 @@ def generate_plot() -> Any:
     return FunctionTool(
         name="generate_plotly",
         description=(
-            "Generate a Plotly bar plot visualization. "
-            "Takes x-axis and y-axis values as lists of floats. "
+            "Generate a Plotly line plot with markers. "
+            "Takes x-axis and y-axis values as lists of floats, plus optional xlabel and ylabel. "
             "The plot will be displayed in the Plot view panel."
         ),
         params_json_schema=PlotTool.model_json_schema(),
