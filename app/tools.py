@@ -4,9 +4,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, Json
 
-from app.viktor_tools.seismic_load_tool import calculate_seismic_loads_tool
 from app.viktor_tools.wind_loads_tool import calculate_wind_loads_tool
-from app.viktor_tools.footing_capacity_tool import calculate_footing_capacity_tool
 from app.viktor_tools.geometry_tool import generate_geometry_tool
 from app.viktor_tools.structural_analysis_tool import calculate_structural_analysis_tool
 from app.viktor_tools.sensitivity_analysis_tool import (
@@ -14,6 +12,21 @@ from app.viktor_tools.sensitivity_analysis_tool import (
 )
 from app.viktor_tools.plotting_tool import generate_plot, show_hide_plot_tool
 from app.viktor_tools.table_tool import generate_table, show_hide_table_tool
+
+
+# Friendly display names for tools in chat
+TOOL_DISPLAY_NAMES: dict[str, str] = {
+    "generate_geometry": "Generate Geometry",
+    "calculate_wind_loads": "Calculate Wind Loads",
+    "calculate_structural_analysis": "Calculate Structural Analysis",
+    "calculate_sensitivity_analysis": "Calculate Sensitivity Analysis",
+    "generate_plotly": "Generate Plot",
+    "generate_table": "Generate Table",
+    "show_hide_plot": "Show/Hide Plot",
+    "show_hide_table": "Show/Hide Table",
+    "create_dummy_workflow_node": "Create Workflow Node",
+    "compose_workflow_graph": "Compose Workflow Graph",
+}
 
 
 class Workflow(BaseModel):
@@ -33,12 +46,6 @@ class WindloadAnalysis(BaseModel):
     exposure_level: Literal["A", "B", "C", "D"]
 
 
-class SeismicAnalysis(BaseModel):
-    soil_cateogory: Literal["A", "B", "C", "D", "F"]
-    region: Literal["A", "B", "C", "D"]
-    importance_level: Literal["1", "2", "3"]
-
-
 class Result(BaseModel):
     pass
 
@@ -46,7 +53,6 @@ class Result(BaseModel):
 class StructuralAnalysis(BaseModel):
     geometry_result: Result
     wind_result: Result | None = None
-    seismic_result: Result
 
 
 class FootingCapacity(BaseModel):
@@ -64,7 +70,6 @@ class DummyWorkflowNode(BaseModel):
     node_type: Literal[
         "geometry_generation",
         "windload_analysis",
-        "seismic_analysis",
         "structural_analysis",
         "footing_capacity",
         "footing_design",
@@ -191,10 +196,7 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
         ]
     )
 
-    viewer = WorkflowViewer(
-        lambda: workflow,
-        root_dir=Path(__file__).resolve().parent / "workflow_graph",
-    )
+    viewer = WorkflowViewer(lambda: workflow)
     html_content = viewer.write()  # Returns HTML string
 
     # Store HTML in VIKTOR storage for WebView access
@@ -245,9 +247,7 @@ def get_tools() -> list[Any]:
     return [
         create_dummy_workflow_node_tool(),
         compose_workflow_graph_tool(),
-        calculate_seismic_loads_tool(),
         calculate_wind_loads_tool(),
-        calculate_footing_capacity_tool(),
         generate_geometry_tool(),
         calculate_structural_analysis_tool(),
         calculate_sensitivity_analysis_tool(),

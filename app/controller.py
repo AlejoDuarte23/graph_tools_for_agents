@@ -14,7 +14,7 @@ from agents import Agent, Runner
 from openai.types.responses import ResponseTextDeltaEvent
 from agents import set_tracing_disabled
 
-from app.tools import get_tools
+from app.tools import get_tools, TOOL_DISPLAY_NAMES
 from app.viktor_tools.plotting_tool import PlotTool
 from app.viktor_tools.table_tool import TableTool
 
@@ -113,6 +113,7 @@ def workflow_agent_sync_stream(
             - Don't aggressively propose actions - wait for user direction
             - Provide clear, concise responses
             - Only suggest next steps when explicitly asked or when clarification is needed
+            - Markdown is allowed, but don't use tables; format with headings, sections, and links.
             
             YOU HAVE TWO MAIN ROLES:
             
@@ -124,8 +125,6 @@ def workflow_agent_sync_stream(
             2. PERFORM CALCULATIONS: Use VIKTOR app tools to execute actual engineering calculations
                - generate_geometry: Generate 3D bridge geometry
                - calculate_wind_loads: Perform wind load analysis
-               - calculate_seismic_loads: Perform seismic load analysis
-               - calculate_footing_capacity: Perform footing capacity calculations
                - calculate_structural_analysis: Perform structural analysis on bridges
                - calculate_sensitivity_analysis: Run sensitivity analysis on bridge height
                These tools call real VIKTOR applications and return actual engineering results.
@@ -140,19 +139,11 @@ def workflow_agent_sync_stream(
             Available VIKTOR App Tools (for actual calculations):
             - generate_geometry: Generate 3D parametric truss bridge geometry (nodes, lines, members)
               URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
-              Parameters: bridge_length, bridge_width, bridge_height, n_divisions, cross_section (HSS200×200×8, HSS250×250×10, HSS300×300×12, HSS350×350×16)
+              Parameters: bridge_length, bridge_width, bridge_height, n_divisions, cross_section (HSS200x200x8, HSS250x250x10, HSS300x300x12, HSS350x350x16)
             
             - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
               URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
               Parameters: risk_category, wind_speed_ms, exposure_category, bridge dimensions
-            
-            - calculate_seismic_loads: Calculate seismic loads and design response spectrum
-              URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
-              Parameters: soil_category, region, importance_level, tl_s, max_period_s
-            
-            - calculate_footing_capacity: Calculate bearing capacity and sliding resistance
-              URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
-              Parameters: footing dimensions (B, L, Df, t), soil properties, loads, safety factors
             
             - calculate_structural_analysis: Run structural analysis on bridge structures
               URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
@@ -176,14 +167,8 @@ def workflow_agent_sync_stream(
               → Use URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
               → Use URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
-            - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
-              → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
             - structural_analysis: Structural analysis on bridges with load combinations
               → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
-            - footing_capacity: Soil capacity analysis (soil_category, foundation_type)
-              → Use URL: https://beta.viktor.ai/workspaces/4682/app/editor/2404
-            - footing_design: Design footings (requires reaction_loads and footing_capacity)
-              → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437 (default)
             - sensitivity_analysis: Sensitivity analysis varying bridge height
               → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             
@@ -194,26 +179,22 @@ def workflow_agent_sync_stream(
               → Maximum ONE plot_output node per workflow
             - table_output: Table display of results  
               → No URL (agent tool, not a VIKTOR app)
-              → Can depend on ANY analysis node (geometry_generation, windload_analysis, seismic_analysis, structural_analysis, footing_capacity, footing_design, sensitivity_analysis)
+              → Can depend on ANY analysis node (geometry_generation, windload_analysis, seismic_analysis, structural_analysis, sensitivity_analysis)
             
             WORKFLOW COMPOSITION RULES:
             - Build the SMALLEST workflow that satisfies the user's request (be generous with table_output nodes)
             - Only add upstream dependencies when the user explicitly asks for end-to-end calculations
-            - If user asks for "footing design", create ONLY the footing_design node unless they say "full workflow"
-            - If user asks for "wind loads", create ONLY the windload_analysis node
+           - If user asks for "wind loads", create ONLY the windload_analysis node
             - Add dependencies (geometry, loads, etc.) ONLY when user mentions them or asks for complete analysis
             - OUTPUT NODES: plot_output and table_output have NO url field (leave it null/empty)
             
             Workflow dependency reference (use only when building full workflows):
             1. GeometryGeneration first (no dependencies)
             2. WindloadAnalysis depends on geometry_generation
-            3. SeismicAnalysis depends on geometry_generation
-            4. StructuralAnalysis depends on geometry_generation and load analyses
-            5. SensitivityAnalysis depends on geometry_generation and load analyses and structural analysis for exploratory purpose
-            6. FootingCapacity depends on geometry_generation
-            7. FootingDesign depends on StructuralAnalysis and FootingCapacity
-            8. PlotOutput depends on sensitivity_analysis ONLY (max 1 per workflow)
-            9. TableOutput can depend on any node (Can be added in multiple nodes. But user can visualize just one output at the time be propositive add it in at least two node)
+            3. StructuralAnalysis depends on geometry_generation and wind load analysis
+            4. SensitivityAnalysis depends on geometry_generation and wind load analysis and structural analysis for exploratory purpose
+            5. PlotOutput depends on sensitivity_analysis ONLY (max 1 per workflow)
+            6. TableOutput can depend on any node (Can be added in multiple nodes. But user can visualize just one output at the time be propositive add it in at least two node)
             
             When composing a workflow, use the compose_workflow_graph tool with all nodes
             defined together. Set proper depends_on relationships between nodes.
@@ -229,7 +210,7 @@ def workflow_agent_sync_stream(
             )
 
             # Streamed run (no await here); events are consumed via async iterator.
-            result = Runner.run_streamed(agent, input=chat_history)  # type: ignore[arg-type]
+            result = Runner.run_streamed(agent, input=chat_history, max_turns=15)  # type: ignore[arg-type]
 
             async for event in result.stream_events():
                 # Token streaming from raw response delta events
@@ -253,13 +234,15 @@ def workflow_agent_sync_stream(
                         tool_name = _extract_tool_name(raw)
                         if cid:
                             call_id_to_name[cid] = tool_name
-                        q.put(f"\n\n🔧 Running `{tool_name}`...\n")
+                        display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+                        q.put(f"\n\n> ⚙️ Running **{display_name}**\n")
                         continue
 
                     if event.name == "tool_output":
                         cid = _extract_call_id(raw)
                         tool_name = call_id_to_name.get(cid or "", "tool")
-                        q.put(f"\n✅ Finished `{tool_name}`.\n")
+                        display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+                        q.put(f"\n> ✅ Done **{display_name}**\n\n")
                         continue
 
         except Exception as e:
@@ -322,7 +305,7 @@ def get_table_visibility(params, **kwargs):
 
 
 class Parametrization(vkt.Parametrization):
-    title = vkt.Text("""# � VIKTOR Bridge Workflow Agent
+    title = vkt.Text("""# VIKTOR Bridge Workflow Agent
     
 Create visual workflow graphs for bridge engineering projects! 🎨
     
