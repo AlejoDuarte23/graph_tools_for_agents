@@ -210,7 +210,7 @@ def workflow_agent_sync_stream(
             )
 
             # Streamed run (no await here); events are consumed via async iterator.
-            result = Runner.run_streamed(agent, input=chat_history, max_turns=15)  # type: ignore[arg-type]
+            result = Runner.run_streamed(agent, input=chat_history, max_turns=20)  # type: ignore[arg-type]
 
             async for event in result.stream_events():
                 # Token streaming from raw response delta events
