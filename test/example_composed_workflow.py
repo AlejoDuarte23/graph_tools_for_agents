@@ -19,13 +19,6 @@ async def main() -> None:
                 url="https://beta.viktor.ai/workspaces/4672/app/editor/2394",
             ),
             DummyWorkflowNode(
-                node_id="seismic",
-                node_type="seismic_analysis",
-                label="Seismic Analysis",
-                url="https://beta.viktor.ai/workspaces/4680/app/editor/2403",
-                depends_on=["geometry"],
-            ),
-            DummyWorkflowNode(
                 node_id="wind",
                 node_type="windload_analysis",
                 label="Wind Load Analysis",
@@ -37,7 +30,7 @@ async def main() -> None:
                 node_type="structural_analysis",
                 label="Structural Analysis",
                 url="https://beta.viktor.ai/workspaces/4672/app/editor/2394",
-                depends_on=["seismic", "wind"],
+                depends_on=["wind"],
             ),
             DummyWorkflowNode(
                 node_id="footing_cap",

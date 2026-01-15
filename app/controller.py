@@ -124,7 +124,6 @@ def workflow_agent_sync_stream(
             2. PERFORM CALCULATIONS: Use VIKTOR app tools to execute actual engineering calculations
                - generate_geometry: Generate 3D bridge geometry
                - calculate_wind_loads: Perform wind load analysis
-               - calculate_seismic_loads: Perform seismic load analysis
                - calculate_structural_analysis: Perform structural analysis on bridges
                - calculate_sensitivity_analysis: Run sensitivity analysis on bridge height
                These tools call real VIKTOR applications and return actual engineering results.
@@ -144,10 +143,6 @@ def workflow_agent_sync_stream(
             - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
               URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
               Parameters: risk_category, wind_speed_ms, exposure_category, bridge dimensions
-            
-            - calculate_seismic_loads: Calculate seismic loads and design response spectrum
-              URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
-              Parameters: soil_category, region, importance_level, tl_s, max_period_s
             
             - calculate_structural_analysis: Run structural analysis on bridge structures
               URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
@@ -171,8 +166,6 @@ def workflow_agent_sync_stream(
               → Use URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
             - windload_analysis: Wind load calculations (region, wind_speed, exposure_level)
               → Use URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
-            - seismic_analysis: Seismic analysis (soil_category, region, importance_level)
-              → Use URL: https://beta.viktor.ai/workspaces/4680/app/editor/2403
             - structural_analysis: Structural analysis on bridges with load combinations
               → Use URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437
             - sensitivity_analysis: Sensitivity analysis varying bridge height
@@ -197,11 +190,10 @@ def workflow_agent_sync_stream(
             Workflow dependency reference (use only when building full workflows):
             1. GeometryGeneration first (no dependencies)
             2. WindloadAnalysis depends on geometry_generation
-            3. SeismicAnalysis depends on geometry_generation
-            4. StructuralAnalysis depends on geometry_generation and load analyses
-            5. SensitivityAnalysis depends on geometry_generation and load analyses and structural analysis for exploratory purpose
-            6. PlotOutput depends on sensitivity_analysis ONLY (max 1 per workflow)
-            7. TableOutput can depend on any node (Can be added in multiple nodes. But user can visualize just one output at the time be propositive add it in at least two node)
+            3. StructuralAnalysis depends on geometry_generation and wind load analysis
+            4. SensitivityAnalysis depends on geometry_generation and wind load analysis and structural analysis for exploratory purpose
+            5. PlotOutput depends on sensitivity_analysis ONLY (max 1 per workflow)
+            6. TableOutput can depend on any node (Can be added in multiple nodes. But user can visualize just one output at the time be propositive add it in at least two node)
             
             When composing a workflow, use the compose_workflow_graph tool with all nodes
             defined together. Set proper depends_on relationships between nodes.

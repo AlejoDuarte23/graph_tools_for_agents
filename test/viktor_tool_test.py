@@ -1,10 +1,5 @@
 import sys
 
-from app.viktor_tools.seismic_load_tool import (
-    SeismicLoadInput,
-    SeismicLoadTool,
-    SeismicLoadOutput,
-)
 from app.viktor_tools.wind_loads_tool import (
     WindLoadInput,
     WindLoadTool,
@@ -30,28 +25,6 @@ from app.viktor_tools.geometry_tool import (
     GeometryGenerationTool,
     Model,
 )
-
-
-def test_seismic_load():
-    """Test SeismicLoadTool.run_and_parse returns SeismicLoadOutput"""
-    seismic_input = SeismicLoadInput(
-        soil_category="D",
-        region="B",
-        importance_level="2",
-        tl_s=6.0,
-        max_period_s=4.0,
-    )
-    tool = SeismicLoadTool(seismic_input=seismic_input)
-
-    result = tool.run_and_parse()
-
-    # Verify type
-    assert isinstance(result, SeismicLoadOutput), (
-        f"Expected SeismicLoadOutput, got {type(result)}"
-    )
-
-    assert result.seismic_parameters is not None
-    assert len(result.spectrum_data.periods_s) > 0
 
 
 def test_wind_loads():
@@ -168,7 +141,6 @@ def run_all_tests():
     print("#" * 60)
 
     tests = [
-        ("SeismicLoadTool", test_seismic_load),
         ("WindLoadTool", test_wind_loads),
         ("StructuralAnalysisTool", test_structural_analysis),
         ("SensitivityAnalysisTool", test_sensitivity_analysis),
