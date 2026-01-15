@@ -15,7 +15,7 @@ load_dotenv()
 logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VIKTOR_TOKEN = os.getenv("TOKEN_VK_APP")
+VIKTOR_TOKEN = (os.getenv("TOKEN_VK_APP") or "").strip() or None
 MAX_POLL_SECONDS = int(os.getenv("VIKTOR_MAX_POLL_SECONDS", "120"))
 
 API_BASE = os.getenv("VIKTOR_API_BASE", "https://beta.viktor.ai/api").rstrip("/")
@@ -35,7 +35,7 @@ class ViktorTool(ABC):
     ):
         self.workspace_id = workspace_id
         self.entity_id = entity_id
-        self.token = token or VIKTOR_TOKEN
+        self.token = (token or VIKTOR_TOKEN or "").strip()
         if not self.token:
             raise ValueError("Missing VIKTOR token (TOKEN_VK_APP).")
 
