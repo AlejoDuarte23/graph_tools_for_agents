@@ -1,9 +1,5 @@
 import sys
-from app.viktor_tools.footing_capacity_tool import (
-    FootingCapacityInput,
-    FootingCapacityTool,
-    FootingCapacityOutput,
-)
+
 from app.viktor_tools.seismic_load_tool import (
     SeismicLoadInput,
     SeismicLoadTool,
@@ -36,33 +32,6 @@ from app.viktor_tools.geometry_tool import (
 )
 
 
-def test_footing_capacity():
-    """Test FootingCapacityTool.run_and_parse returns FootingCapacityOutput"""
-    footing_input = FootingCapacityInput(
-        footing_B_mm=2000,
-        footing_L_mm=2500,
-        footing_Df_mm=1000,
-        footing_t_mm=500,
-        gamma_kN_m3=18.0,
-        c_kPa=0.0,
-        phi_deg=30.0,
-        mu_base=0.50,
-        V_kN=1000.0,
-        H_kN=150.0,
-    )
-    tool = FootingCapacityTool(footing_input=footing_input)
-
-    result = tool.run_and_parse()
-
-    # Verify type
-    assert isinstance(result, FootingCapacityOutput), (
-        f"Expected FootingCapacityOutput, got {type(result)}"
-    )
-
-    assert "bearing_capacity" in result.results
-    assert "sliding_resistance" in result.results
-
-
 def test_seismic_load():
     """Test SeismicLoadTool.run_and_parse returns SeismicLoadOutput"""
     seismic_input = SeismicLoadInput(
@@ -90,12 +59,12 @@ def test_wind_loads():
     wind_input = WindLoadInput(
         risk_category="II",
         site_elevation_m=138.0,
-        truss_length=10000,
-        truss_width=1000,
-        truss_height=1500,
+        bridge_length=20000,
+        bridge_width=4500,
+        bridge_height=3000,
         roof_pitch_angle=12,
-        n_divisions=6,
-        cross_section="SHS50x4",
+        n_divisions=4,
+        cross_section="HSS200×200×8",
         exposure_category="C",
         wind_speed_ms=47.0,
     )
@@ -116,15 +85,16 @@ def test_structural_analysis():
     """Test StructuralAnalysisTool.run_and_parse returns StructuralAnalysisOutput"""
     structural_input = StructuralAnalysisInput(
         step_1=StructuralAnalysisStep1(
-            truss_length=10000,
-            truss_width=1000,
-            truss_height=1500,
-            n_divisions=6,
-            cross_section="SHS100x4",
+            bridge_length=20000,
+            bridge_width=4500,
+            bridge_height=3000,
+            n_divisions=4,
+            cross_section="HSS200x200x8",
         ),
         step_2=StructuralAnalysisStep2(
-            load_q=5,
-            wind_pressure=1,
+            load_q=4,
+            wind_pressure=1.5,
+            wind_cf=1.6,
         ),
     )
     tool = StructuralAnalysisTool(structural_input=structural_input)
@@ -144,18 +114,18 @@ def test_sensitivity_analysis():
     """Test SensitivityAnalysisTool.run_and_parse returns SensitivityAnalysisOutput"""
     sensitivity_input = SensitivityAnalysisInput(
         step_1=SensitivityAnalysisStep1(
-            truss_length=10000,
-            truss_width=1000,
-            n_divisions=6,
-            cross_section="SHS100x4",
+            bridge_length=20000,
+            bridge_width=4500,
+            n_divisions=4,
+            cross_section="HSS200x200x8",
         ),
         step_2=SensitivityAnalysisStep2(
-            load_q=5,
-            wind_pressure=1,
+            load_q=4,
+            wind_pressure=1.5,
         ),
         step_4=SensitivityAnalysisStep4(
-            min_height=500,
-            max_height=3000,
+            min_height=1000,
+            max_height=7000,
             n_steps=10,
         ),
     )
@@ -174,11 +144,11 @@ def test_sensitivity_analysis():
 def test_geometry_generation():
     """Test GeometryGenerationTool.run_and_parse returns Model"""
     geometry = GeometryGeneration(
-        truss_length=10000,
-        truss_width=1000,
-        truss_height=1500,
-        n_divisions=6,
-        cross_section="SHS100x4",
+        bridge_length=20000,
+        bridge_width=4500,
+        bridge_height=3000,
+        n_divisions=4,
+        cross_section="HSS200×200×8",
     )
     tool = GeometryGenerationTool(geometry=geometry)
 
@@ -198,7 +168,6 @@ def run_all_tests():
     print("#" * 60)
 
     tests = [
-        ("FootingCapacityTool", test_footing_capacity),
         ("SeismicLoadTool", test_seismic_load),
         ("WindLoadTool", test_wind_loads),
         ("StructuralAnalysisTool", test_structural_analysis),
