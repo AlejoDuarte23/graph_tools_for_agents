@@ -14,9 +14,9 @@ class Metadata(BaseModel):
 
 
 class Parameters(BaseModel):
-    truss_length_mm: float
-    truss_width_mm: float
-    truss_height_mm: float
+    bridge_length_mm: float
+    bridge_width_mm: float
+    bridge_height_mm: float
     n_divisions: int
     cross_section_mm: float
 
@@ -27,12 +27,14 @@ class Model(BaseModel):
 
 
 class GeometryGeneration(BaseModel):
-    truss_length: float = Field(default=10000, description="Truss length in mm")
-    truss_width: float = Field(default=1100, description="Truss width in mm")
-    truss_height: float = Field(default=1500, description="Truss height in mm")
-    n_divisions: int = Field(default=8, description="Number of divisions")
-    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS100x4", description="Cross-section size for truss members"
+    bridge_length: float = Field(default=20000, description="Bridge length in mm")
+    bridge_width: float = Field(default=4500, description="Bridge width in mm")
+    bridge_height: float = Field(default=3000, description="Bridge height in mm")
+    n_divisions: int = Field(default=4, description="Number of divisions")
+    cross_section: Literal[
+        "HSS200×200×8", "HSS250×250×10", "HSS300×300×12", "HSS350×350×16"
+    ] = Field(
+        default="HSS200×200×8", description="Cross-section size for bridge members"
     )
 
 
@@ -78,17 +80,17 @@ async def generate_geometry_func(ctx: Any, args: str) -> str:
     result_summary = {
         "nodes": nodes_count,
         "lines": lines_count,
-        "truss_length": payload.truss_length,
-        "truss_width": payload.truss_width,
-        "truss_height": payload.truss_height,
+        "bridge_length": payload.bridge_length,
+        "bridge_width": payload.bridge_width,
+        "bridge_height": payload.bridge_height,
         "n_divisions": payload.n_divisions,
         "cross_section": payload.cross_section,
     }
 
     return (
-        f"Truss geometry generated successfully with {nodes_count} nodes and "
+        f"Bridge geometry generated successfully with {nodes_count} nodes and "
         f"{lines_count} lines. "
-        f"Truss dimensions: {payload.truss_length}mm x {payload.truss_width}mm x {payload.truss_height}mm. "
+        f"Bridge dimensions: {payload.bridge_length}mm x {payload.bridge_width}mm x {payload.bridge_height}mm. "
         f"Divisions: {payload.n_divisions}, Cross-section: {payload.cross_section}. "
         f"Result: {json.dumps(result_summary, indent=2)}"
     )
@@ -100,9 +102,9 @@ def generate_geometry_tool() -> Any:
     return FunctionTool(
         name="generate_geometry",
         description=(
-            "Generate 3D rectangular truss beam geometry in a VIKTOR app (nodes, lines, members). "
-            "Parameters: truss_length, truss_width, truss_height (all in mm), n_divisions (number of truss divisions), "
-            "and cross_section (SHS50x4, SHS75x4, SHS100x4, or SHS150x4). "
+            "Generate 3D parametric truss bridge geometry in a VIKTOR app (nodes, lines, members). "
+            "Parameters: bridge_length, bridge_width, bridge_height (all in mm), n_divisions (number of bridge divisions), "
+            "and cross_section (HSS200×200×8, HSS250×250×10, HSS300×300×12, or HSS350×350×16). "
             "Returns a structural model with nodes (3D coordinates) and lines (connections between nodes)."
         ),
         params_json_schema=GeometryGeneration.model_json_schema(),
@@ -114,11 +116,11 @@ if __name__ == "__main__":
     import pprint
 
     geometry = GeometryGeneration(
-        truss_length=10000,
-        truss_width=1000,
-        truss_height=1500,
-        n_divisions=6,
-        cross_section="SHS100x4",
+        bridge_length=20000,
+        bridge_width=4500,
+        bridge_height=3000,
+        n_divisions=4,
+        cross_section="HSS200×200×8",
     )
     tool = GeometryGenerationTool(geometry=geometry)
 

@@ -10,20 +10,23 @@ logger = logging.getLogger(__name__)
 class StructuralAnalysisStep1(BaseModel):
     """Step 1 - Geometry parameters"""
 
-    truss_length: float = Field(default=10000, description="Truss length in mm")
-    truss_width: float = Field(default=1000, description="Truss width in mm")
-    truss_height: float = Field(default=1500, description="Truss height in mm")
-    n_divisions: int = Field(default=6, description="Number of divisions")
-    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS100x4", description="Cross-section size for truss members"
+    bridge_length: float = Field(default=20000, description="Bridge length in mm")
+    bridge_width: float = Field(default=4500, description="Bridge width in mm")
+    bridge_height: float = Field(default=3000, description="Bridge height in mm")
+    n_divisions: int = Field(default=4, description="Number of divisions")
+    cross_section: Literal[
+        "HSS200x200x8", "HSS250x250x10", "HSS300x300x12", "HSS350x350x16"
+    ] = Field(
+        default="HSS200x200x8", description="Cross-section size for bridge members"
     )
 
 
 class StructuralAnalysisStep2(BaseModel):
     """Step 2 - Loads parameters"""
 
-    load_q: float = Field(default=5, description="Gravitational load Q in kPa")
-    wind_pressure: float = Field(default=1, description="Wind pressure in kPa")
+    load_q: float = Field(default=4, description="Gravitational load Q in kPa")
+    wind_pressure: float = Field(default=1.5, description="Wind pressure in kPa")
+    wind_cf: float = Field(default=1.6, description="Wind force coefficient Cf")
 
 
 class StructuralAnalysisInput(BaseModel):
@@ -44,9 +47,9 @@ class MaxDisplacements(BaseModel):
 
 
 class ModelParameters(BaseModel):
-    truss_length_mm: float
-    truss_width_mm: float
-    truss_height_mm: float
+    bridge_length_mm: float
+    bridge_width_mm: float
+    bridge_height_mm: float
     n_divisions: int
     cross_section: str
     load_q_kPa: float
@@ -111,9 +114,9 @@ async def calculate_structural_analysis_func(ctx: Any, args: str) -> str:
     # Build step_1 from flat input
     step_1_data = {}
     step_1_fields = [
-        "truss_length",
-        "truss_width",
-        "truss_height",
+        "bridge_length",
+        "bridge_width",
+        "bridge_height",
         "n_divisions",
         "cross_section",
     ]
@@ -123,7 +126,7 @@ async def calculate_structural_analysis_func(ctx: Any, args: str) -> str:
 
     # Build step_2 from flat input
     step_2_data = {}
-    step_2_fields = ["load_q", "wind_pressure"]
+    step_2_fields = ["load_q", "wind_pressure", "wind_cf"]
     for field in step_2_fields:
         if field in raw_input:
             step_2_data[field] = raw_input[field]
@@ -151,9 +154,9 @@ async def calculate_structural_analysis_func(ctx: Any, args: str) -> str:
         "max_displacement_dx_mm": max_disp.dx,
         "max_displacement_dy_mm": max_disp.dy,
         "max_displacement_dz_mm": max_disp.dz,
-        "truss_length_mm": model_params.truss_length_mm,
-        "truss_width_mm": model_params.truss_width_mm,
-        "truss_height_mm": model_params.truss_height_mm,
+        "bridge_length_mm": model_params.bridge_length_mm,
+        "bridge_width_mm": model_params.bridge_width_mm,
+        "bridge_height_mm": model_params.bridge_height_mm,
         "n_divisions": model_params.n_divisions,
         "cross_section": model_params.cross_section,
         "load_q_kPa": model_params.load_q_kPa,
@@ -168,7 +171,7 @@ async def calculate_structural_analysis_func(ctx: Any, args: str) -> str:
         f"Structural analysis completed successfully. "
         f"Critical combination: {result.critical_combination}. "
         f"Max displacements: dx={max_disp.dx}mm, dy={max_disp.dy}mm, dz={max_disp.dz}mm. "
-        f"Truss geometry: L={model_params.truss_length_mm}mm, W={model_params.truss_width_mm}mm, H={model_params.truss_height_mm}mm. "
+        f"Bridge geometry: L={model_params.bridge_length_mm}mm, W={model_params.bridge_width_mm}mm, H={model_params.bridge_height_mm}mm. "
         f"Cross-section: {model_params.cross_section}. "
         f"Loads: Q={model_params.load_q_kPa}kPa, Wind={model_params.wind_pressure_kPa}kPa. "
         f"Result: {json.dumps(result_summary, indent=2)}"
@@ -179,15 +182,18 @@ async def calculate_structural_analysis_func(ctx: Any, args: str) -> str:
 class StructuralAnalysisFlatInput(BaseModel):
     """Flat input parameters for structural analysis - easier for agent to use"""
 
-    truss_length: float = Field(default=10000, description="Truss length in mm")
-    truss_width: float = Field(default=1000, description="Truss width in mm")
-    truss_height: float = Field(default=1500, description="Truss height in mm")
-    n_divisions: int = Field(default=6, description="Number of divisions")
-    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS100x4", description="Cross-section size for truss members"
+    bridge_length: float = Field(default=20000, description="Bridge length in mm")
+    bridge_width: float = Field(default=4500, description="Bridge width in mm")
+    bridge_height: float = Field(default=3000, description="Bridge height in mm")
+    n_divisions: int = Field(default=4, description="Number of divisions")
+    cross_section: Literal[
+        "HSS200x200x8", "HSS250x250x10", "HSS300x300x12", "HSS350x350x16"
+    ] = Field(
+        default="HSS200x200x8", description="Cross-section size for bridge members"
     )
-    load_q: float = Field(default=5, description="Gravitational load Q in kPa")
-    wind_pressure: float = Field(default=1, description="Wind pressure in kPa")
+    load_q: float = Field(default=4, description="Gravitational load Q in kPa")
+    wind_pressure: float = Field(default=1.5, description="Wind pressure in kPa")
+    wind_cf: float = Field(default=1.6, description="Wind force coefficient Cf")
 
 
 def calculate_structural_analysis_tool() -> Any:
@@ -196,9 +202,9 @@ def calculate_structural_analysis_tool() -> Any:
     return FunctionTool(
         name="calculate_structural_analysis",
         description=(
-            "Run structural analysis on a rectangular truss beam using OpenSees in a Viktor app. "
-            "Analyzes the truss under gravitational and wind loads with multiple SLS load combinations. "
-            "Takes geometry parameters (truss length, width, height, divisions, cross-section) and load parameters (gravitational load Q, wind pressure). "
+            "Run structural analysis on a bridge structure using OpenSees in a Viktor app. "
+            "Analyzes the bridge under gravitational and wind loads with multiple SLS load combinations. "
+            "Takes geometry parameters (bridge length, width, height, divisions, cross-section) and load parameters (gravitational load Q, wind pressure, wind_cf). "
             "Returns critical load combination, maximum displacements (dx, dy, dz), and results for all combinations. "
             "URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437"
         ),
@@ -210,15 +216,16 @@ def calculate_structural_analysis_tool() -> Any:
 if __name__ == "__main__":
     structural_input = StructuralAnalysisInput(
         step_1=StructuralAnalysisStep1(
-            truss_length=10000,
-            truss_width=1000,
-            truss_height=1500,
-            n_divisions=6,
-            cross_section="SHS100x4",
+            bridge_length=20000,
+            bridge_width=4500,
+            bridge_height=3000,
+            n_divisions=4,
+            cross_section="HSS200x200x8",
         ),
         step_2=StructuralAnalysisStep2(
-            load_q=5,
-            wind_pressure=1,
+            load_q=4,
+            wind_pressure=1.5,
+            wind_cf=1.6,
         ),
     )
     tool = StructuralAnalysisTool(structural_input=structural_input)

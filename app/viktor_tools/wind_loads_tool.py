@@ -14,16 +14,16 @@ class WindLoadInput(BaseModel):
     site_elevation_m: float = Field(
         default=138.0, description="Site elevation in meters"
     )
-    truss_length: float = Field(default=10000, description="Truss length in mm")
-    truss_width: float = Field(default=1000, description="Truss width in mm")
-    truss_height: float = Field(default=1500, description="Truss height in mm")
+    bridge_length: float = Field(default=20000, description="Bridge length in mm")
+    bridge_width: float = Field(default=4500, description="Bridge width in mm")
+    bridge_height: float = Field(default=3000, description="Bridge height in mm")
     roof_pitch_angle: float = Field(
         default=12, description="Roof pitch angle in degrees"
     )
-    n_divisions: int = Field(default=6, description="Number of divisions")
-    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS50x4", description="Cross-section size"
-    )
+    n_divisions: int = Field(default=4, description="Number of divisions")
+    cross_section: Literal[
+        "HSS200×200×8", "HSS250×250×10", "HSS300×300×12", "HSS350×350×16"
+    ] = Field(default="HSS200×200×8", description="Cross-section size")
     exposure_category: Literal["B", "C", "D"] = Field(
         default="C", description="Exposure category"
     )
@@ -43,9 +43,9 @@ class WindLoadInput(BaseModel):
 class WindLoadOutput(BaseModel):
     risk_category: str
     site_elevation_m: float
-    truss_length_mm: float
-    truss_width_mm: float
-    truss_height_mm: float
+    bridge_length_mm: float
+    bridge_width_mm: float
+    bridge_height_mm: float
     n_divisions: int
     cross_section: str
     exposure_category: str
@@ -128,9 +128,9 @@ def calculate_wind_loads_tool() -> Any:
     return FunctionTool(
         name="calculate_wind_loads",
         description=(
-            "Calculate wind loads for a truss structure in a Viktor app based on ASCE 7 standards. "
+            "Calculate wind loads for a bridge structure in a Viktor app based on ASCE 7 standards. "
             "Computes velocity pressure (qz), design pressure (p), and projected area parameters. "
-            "Takes truss dimensions, wind speed, exposure category, and various factors. "
+            "Takes bridge dimensions, wind speed, exposure category, and various factors. "
             "Returns wind load analysis results including pressures in kPa, projected areas, and solidity ratio."
         ),
         params_json_schema=WindLoadInput.model_json_schema(),
@@ -142,12 +142,12 @@ if __name__ == "__main__":
     wind_input = WindLoadInput(
         risk_category="II",
         site_elevation_m=138.0,
-        truss_length=10000,
-        truss_width=1000,
-        truss_height=1500,
+        bridge_length=20000,
+        bridge_width=4500,
+        bridge_height=3000,
         roof_pitch_angle=12,
-        n_divisions=6,
-        cross_section="SHS50x4",
+        n_divisions=4,
+        cross_section="HSS200×200×8",
         exposure_category="C",
         wind_speed_ms=47.0,
     )

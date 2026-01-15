@@ -10,26 +10,28 @@ logger = logging.getLogger(__name__)
 class SensitivityAnalysisStep1(BaseModel):
     """Step 1 - Geometry parameters"""
 
-    truss_length: float = Field(default=10000, description="Truss length in mm")
-    truss_width: float = Field(default=1000, description="Truss width in mm")
-    n_divisions: int = Field(default=6, description="Number of divisions")
-    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS100x4", description="Cross-section size for truss members"
+    bridge_length: float = Field(default=20000, description="Bridge length in mm")
+    bridge_width: float = Field(default=4500, description="Bridge width in mm")
+    n_divisions: int = Field(default=4, description="Number of divisions")
+    cross_section: Literal[
+        "HSS200x200x8", "HSS250x250x10", "HSS300x300x12", "HSS350x350x16"
+    ] = Field(
+        default="HSS200x200x8", description="Cross-section size for bridge members"
     )
 
 
 class SensitivityAnalysisStep2(BaseModel):
     """Step 2 - Loads parameters"""
 
-    load_q: float = Field(default=5, description="Gravitational load Q in kPa")
-    wind_pressure: float = Field(default=1, description="Wind pressure in kPa")
+    load_q: float = Field(default=4, description="Gravitational load Q in kPa")
+    wind_pressure: float = Field(default=1.5, description="Wind pressure in kPa")
 
 
 class SensitivityAnalysisStep4(BaseModel):
     """Step 4 - Sensitivity Analysis parameters"""
 
-    min_height: float = Field(default=500, description="Minimum truss height in mm")
-    max_height: float = Field(default=3000, description="Maximum truss height in mm")
+    min_height: float = Field(default=1000, description="Minimum bridge height in mm")
+    max_height: float = Field(default=7000, description="Maximum bridge height in mm")
     n_steps: int = Field(
         default=10, description="Number of steps for sensitivity analysis"
     )
@@ -51,7 +53,7 @@ class SensitivityAnalysisInput(BaseModel):
 
 
 class SensitivityDataPoint(BaseModel):
-    height_mm: float = Field(description="Truss height in mm")
+    height_mm: float = Field(description="Bridge height in mm")
     max_dz_mm: float = Field(description="Maximum Z displacement in mm")
     critical_combination: str = Field(
         description="Name of the critical load combination"
@@ -59,8 +61,8 @@ class SensitivityDataPoint(BaseModel):
 
 
 class SensitivityModelParameters(BaseModel):
-    truss_length_mm: float
-    truss_width_mm: float
+    bridge_length_mm: float
+    bridge_width_mm: float
     min_height_mm: float
     max_height_mm: float
     n_steps: int
@@ -120,8 +122,8 @@ async def calculate_sensitivity_analysis_func(ctx: Any, args: str) -> str:
     # Build step_1 from flat input
     step_1_data = {}
     step_1_fields = [
-        "truss_length",
-        "truss_width",
+        "bridge_length",
+        "bridge_width",
         "n_divisions",
         "cross_section",
     ]
@@ -169,8 +171,8 @@ async def calculate_sensitivity_analysis_func(ctx: Any, args: str) -> str:
     max_deform = max(sensitivity_data, key=lambda x: x.max_dz_mm)
 
     result_summary = {
-        "truss_length_mm": model_params.truss_length_mm,
-        "truss_width_mm": model_params.truss_width_mm,
+        "bridge_length_mm": model_params.bridge_length_mm,
+        "bridge_width_mm": model_params.bridge_width_mm,
         "min_height_mm": model_params.min_height_mm,
         "max_height_mm": model_params.max_height_mm,
         "n_steps": model_params.n_steps,
@@ -201,7 +203,7 @@ async def calculate_sensitivity_analysis_func(ctx: Any, args: str) -> str:
         f"Analyzed {len(sensitivity_data)} height variations from {model_params.min_height_mm}mm to {model_params.max_height_mm}mm. "
         f"Minimum deformation: {min_deform.max_dz_mm}mm at height {min_deform.height_mm}mm. "
         f"Maximum deformation: {max_deform.max_dz_mm}mm at height {max_deform.height_mm}mm. "
-        f"Truss geometry: L={model_params.truss_length_mm}mm, W={model_params.truss_width_mm}mm. "
+        f"Bridge geometry: L={model_params.bridge_length_mm}mm, W={model_params.bridge_width_mm}mm. "
         f"Cross-section: {model_params.cross_section}. "
         f"Loads: Q={model_params.load_q_kPa}kPa, Wind={model_params.wind_pressure_kPa}kPa. "
         f"Result: {json.dumps(result_summary, indent=2)}"
@@ -212,19 +214,21 @@ async def calculate_sensitivity_analysis_func(ctx: Any, args: str) -> str:
 class SensitivityAnalysisFlatInput(BaseModel):
     """Flat input parameters for sensitivity analysis - easier for agent to use"""
 
-    truss_length: float = Field(default=10000, description="Truss length in mm")
-    truss_width: float = Field(default=1000, description="Truss width in mm")
-    n_divisions: int = Field(default=6, description="Number of divisions")
-    cross_section: Literal["SHS50x4", "SHS75x4", "SHS100x4", "SHS150x4"] = Field(
-        default="SHS100x4", description="Cross-section size for truss members"
+    bridge_length: float = Field(default=20000, description="Bridge length in mm")
+    bridge_width: float = Field(default=4500, description="Bridge width in mm")
+    n_divisions: int = Field(default=4, description="Number of divisions")
+    cross_section: Literal[
+        "HSS200x200x8", "HSS250x250x10", "HSS300x300x12", "HSS350x350x16"
+    ] = Field(
+        default="HSS200x200x8", description="Cross-section size for bridge members"
     )
-    load_q: float = Field(default=5, description="Gravitational load Q in kPa")
-    wind_pressure: float = Field(default=1, description="Wind pressure in kPa")
+    load_q: float = Field(default=4, description="Gravitational load Q in kPa")
+    wind_pressure: float = Field(default=1.5, description="Wind pressure in kPa")
     min_height: float = Field(
-        default=500, description="Minimum truss height in mm for sensitivity analysis"
+        default=1000, description="Minimum bridge height in mm for sensitivity analysis"
     )
     max_height: float = Field(
-        default=3000, description="Maximum truss height in mm for sensitivity analysis"
+        default=7000, description="Maximum bridge height in mm for sensitivity analysis"
     )
     n_steps: int = Field(
         default=10, description="Number of steps for sensitivity analysis"
@@ -237,11 +241,11 @@ def calculate_sensitivity_analysis_tool() -> Any:
     return FunctionTool(
         name="calculate_sensitivity_analysis",
         description=(
-            "Run sensitivity analysis on a rectangular truss beam varying the truss height using OpenSees in a Viktor app. "
-            "Analyzes how truss depth (height) affects the maximum vertical deformation under gravitational and wind loads. "
-            "Takes geometry parameters (truss length, width, divisions, cross-section), load parameters (gravitational load Q, wind pressure), "
+            "Run sensitivity analysis on a bridge structure varying the bridge height using OpenSees in a Viktor app. "
+            "Analyzes how bridge depth (height) affects the maximum vertical deformation under gravitational and wind loads. "
+            "Takes geometry parameters (bridge length, width, divisions, cross-section), load parameters (gravitational load Q, wind pressure), "
             "and sensitivity parameters (min_height, max_height, n_steps). "
-            "Returns deformation data for each height value, identifying optimal truss height for minimum deflection. "
+            "Returns deformation data for each height value, identifying optimal bridge height for minimum deflection. "
             "URL: https://beta.viktor.ai/workspaces/4702/app/editor/2437"
         ),
         params_json_schema=SensitivityAnalysisFlatInput.model_json_schema(),
@@ -252,18 +256,18 @@ def calculate_sensitivity_analysis_tool() -> Any:
 if __name__ == "__main__":
     sensitivity_input = SensitivityAnalysisInput(
         step_1=SensitivityAnalysisStep1(
-            truss_length=10000,
-            truss_width=1000,
-            n_divisions=6,
-            cross_section="SHS100x4",
+            bridge_length=20000,
+            bridge_width=4500,
+            n_divisions=4,
+            cross_section="HSS200x200x8",
         ),
         step_2=SensitivityAnalysisStep2(
-            load_q=5,
-            wind_pressure=1,
+            load_q=4,
+            wind_pressure=1.5,
         ),
         step_4=SensitivityAnalysisStep4(
-            min_height=500,
-            max_height=3000,
+            min_height=1000,
+            max_height=7000,
             n_steps=10,
         ),
     )
