@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, Json
 
 from app.viktor_tools.seismic_load_tool import calculate_seismic_loads_tool
 from app.viktor_tools.wind_loads_tool import calculate_wind_loads_tool
-from app.viktor_tools.footing_capacity_tool import calculate_footing_capacity_tool
 from app.viktor_tools.geometry_tool import generate_geometry_tool
 from app.viktor_tools.structural_analysis_tool import calculate_structural_analysis_tool
 from app.viktor_tools.sensitivity_analysis_tool import (
@@ -247,7 +246,6 @@ def get_tools() -> list[Any]:
         compose_workflow_graph_tool(),
         calculate_seismic_loads_tool(),
         calculate_wind_loads_tool(),
-        calculate_footing_capacity_tool(),
         generate_geometry_tool(),
         calculate_structural_analysis_tool(),
         calculate_sensitivity_analysis_tool(),
