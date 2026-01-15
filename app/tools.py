@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, Json
@@ -120,13 +119,6 @@ class ComposeWorkflowGraphArgs(BaseModel):
         list[DummyWorkflowNode],
         Field(description="Workflow nodes with dependencies to compose"),
     ]
-    output_dir: Annotated[
-        str,
-        Field(description="Directory (relative to cwd) where artifacts are written"),
-    ] = "workflow_graph/generated_workflows"
-    write_workflow_json: Annotated[
-        bool, Field(description="Also write a `workflow.json` artifact")
-    ] = False
 
 
 def toposort_edges(nodes: list[str], edges: list[tuple[str, str]]) -> bool:
@@ -217,17 +209,6 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
     except Exception:
         # Ignore if not running in VIKTOR context
         pass
-
-    # Optionally write workflow JSON for debugging
-    json_path: Path | None = None
-    if payload.write_workflow_json:
-        out_dir = Path.cwd() / payload.output_dir / payload.workflow_name
-        out_dir.mkdir(parents=True, exist_ok=True)
-        json_path = out_dir / "workflow.json"
-        json_path.write_text(
-            json.dumps(workflow.model_dump(), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
 
     return f"Workflow '{payload.workflow_name}' created successfully with {len(payload.nodes)} nodes and {len(edges)} connections. The workflow graph has been updated and is now visible in the Workflow Graph view on the right side."
 
