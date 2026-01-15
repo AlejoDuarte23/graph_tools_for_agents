@@ -14,6 +14,21 @@ from app.viktor_tools.plotting_tool import generate_plot, show_hide_plot_tool
 from app.viktor_tools.table_tool import generate_table, show_hide_table_tool
 
 
+# Friendly display names for tools in chat
+TOOL_DISPLAY_NAMES: dict[str, str] = {
+    "generate_geometry": "Generate Geometry",
+    "calculate_wind_loads": "Calculate Wind Loads",
+    "calculate_structural_analysis": "Calculate Structural Analysis",
+    "calculate_sensitivity_analysis": "Calculate Sensitivity Analysis",
+    "generate_plotly": "Generate Plot",
+    "generate_table": "Generate Table",
+    "show_hide_plot": "Show/Hide Plot",
+    "show_hide_table": "Show/Hide Table",
+    "create_dummy_workflow_node": "Create Workflow Node",
+    "compose_workflow_graph": "Compose Workflow Graph",
+}
+
+
 class Workflow(BaseModel):
     pass
 
@@ -181,10 +196,7 @@ async def compose_workflow_graph_func(ctx: Any, args: str) -> str:
         ]
     )
 
-    viewer = WorkflowViewer(
-        lambda: workflow,
-        root_dir=Path(__file__).resolve().parent / "workflow_graph",
-    )
+    viewer = WorkflowViewer(lambda: workflow)
     html_content = viewer.write()  # Returns HTML string
 
     # Store HTML in VIKTOR storage for WebView access

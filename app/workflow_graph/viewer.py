@@ -27,8 +27,10 @@ class WorkflowViewer:
         raise TypeError("Expected a Pydantic model.")
 
     def render_html(self) -> str:
-        css = (self.root_dir / "styles.css").read_text(encoding="utf-8")
-        js = (self.root_dir / "workflow.js").read_text(encoding="utf-8")
+        # Use the directory where this module is located to find static files
+        module_dir = Path(__file__).resolve().parent
+        css = (module_dir / "styles.css").read_text(encoding="utf-8")
+        js = (module_dir / "workflow.js").read_text(encoding="utf-8")
         js = js.replace("export class WorkflowGraph", "class WorkflowGraph")
 
         workflow = self._workflow_factory()

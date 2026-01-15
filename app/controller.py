@@ -14,7 +14,7 @@ from agents import Agent, Runner
 from openai.types.responses import ResponseTextDeltaEvent
 from agents import set_tracing_disabled
 
-from app.tools import get_tools
+from app.tools import get_tools, TOOL_DISPLAY_NAMES
 from app.viktor_tools.plotting_tool import PlotTool
 from app.viktor_tools.table_tool import TableTool
 
@@ -113,6 +113,7 @@ def workflow_agent_sync_stream(
             - Don't aggressively propose actions - wait for user direction
             - Provide clear, concise responses
             - Only suggest next steps when explicitly asked or when clarification is needed
+            - Markdown is allowed, but don't use tables; format with headings, sections, and links.
             
             YOU HAVE TWO MAIN ROLES:
             
@@ -138,7 +139,7 @@ def workflow_agent_sync_stream(
             Available VIKTOR App Tools (for actual calculations):
             - generate_geometry: Generate 3D parametric truss bridge geometry (nodes, lines, members)
               URL: https://beta.viktor.ai/workspaces/4704/app/editor/2447
-              Parameters: bridge_length, bridge_width, bridge_height, n_divisions, cross_section (HSS200×200×8, HSS250×250×10, HSS300×300×12, HSS350×350×16)
+              Parameters: bridge_length, bridge_width, bridge_height, n_divisions, cross_section (HSS200x200x8, HSS250x250x10, HSS300x300x12, HSS350x350x16)
             
             - calculate_wind_loads: Calculate wind loads based on ASCE 7 standards
               URL: https://beta.viktor.ai/workspaces/4713/app/editor/2452
@@ -209,7 +210,7 @@ def workflow_agent_sync_stream(
             )
 
             # Streamed run (no await here); events are consumed via async iterator.
-            result = Runner.run_streamed(agent, input=chat_history)  # type: ignore[arg-type]
+            result = Runner.run_streamed(agent, input=chat_history, max_turns=15)  # type: ignore[arg-type]
 
             async for event in result.stream_events():
                 # Token streaming from raw response delta events
@@ -233,13 +234,15 @@ def workflow_agent_sync_stream(
                         tool_name = _extract_tool_name(raw)
                         if cid:
                             call_id_to_name[cid] = tool_name
-                        q.put(f"\n\n🔧 Running `{tool_name}`...\n")
+                        display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+                        q.put(f"\n\n> ⚙️ Running **{display_name}**\n")
                         continue
 
                     if event.name == "tool_output":
                         cid = _extract_call_id(raw)
                         tool_name = call_id_to_name.get(cid or "", "tool")
-                        q.put(f"\n✅ Finished `{tool_name}`.\n")
+                        display_name = TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+                        q.put(f"\n> ✅ Done **{display_name}**\n\n")
                         continue
 
         except Exception as e:
@@ -302,7 +305,7 @@ def get_table_visibility(params, **kwargs):
 
 
 class Parametrization(vkt.Parametrization):
-    title = vkt.Text("""# � VIKTOR Bridge Workflow Agent
+    title = vkt.Text("""# VIKTOR Bridge Workflow Agent
     
 Create visual workflow graphs for bridge engineering projects! 🎨
     
