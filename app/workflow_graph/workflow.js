@@ -4,6 +4,8 @@ export class WorkflowGraph {
     this.edgesSvg = edgesSvg;
     this.nodesHost = nodesHost;
     this.logEl = logEl;
+    this.edgesGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    this.edgesSvg.appendChild(this.edgesGroup);
 
     const rootStyle = getComputedStyle(document.documentElement);
     this.NODE_W = parseFloat(rootStyle.getPropertyValue("--node-w"));
@@ -11,6 +13,7 @@ export class WorkflowGraph {
     this.GAP_X  = parseFloat(rootStyle.getPropertyValue("--gap-x"));
     this.GAP_Y  = parseFloat(rootStyle.getPropertyValue("--gap-y"));
     this.EDGE_W = (rootStyle.getPropertyValue("--edge-w") || "8").trim();
+    this.EDGE_CURVE = 80;
 
     // Pastel colors and custom icons for each node type
     this.typeStyles = {
@@ -98,6 +101,7 @@ export class WorkflowGraph {
     this.panOriginY = 0;
 
     this._setupPanZoom();
+    this._setupResizeObserver();
   }
 
   _setupPanZoom() {
@@ -148,10 +152,24 @@ export class WorkflowGraph {
     });
   }
 
+  _setupResizeObserver() {
+    if (typeof ResizeObserver === "undefined") return;
+    const onResize = () => {
+      this.relayout({ resetDragged: false });
+      this.render();
+      this.fitToView();
+    };
+    this._resizeObserver = new ResizeObserver(onResize);
+    this._resizeObserver.observe(this.stage);
+  }
+
   _applyTransform() {
-    const transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
-    this.nodesHost.style.transform = transform;
-    this.edgesSvg.style.transform = transform;
+    const cssTransform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
+    this.nodesHost.style.transform = cssTransform;
+    if (this.edgesGroup) {
+      const svgTransform = `translate(${this.panX} ${this.panY}) scale(${this.scale})`;
+      this.edgesGroup.setAttribute("transform", svgTransform);
+    }
   }
 
   zoomIn() {
@@ -185,7 +203,7 @@ export class WorkflowGraph {
     const contentH = maxY - minY;
     const stageW = this.stage.clientWidth;
     const stageH = this.stage.clientHeight;
-    const padding = 60;
+    const padding = 60 + this.EDGE_CURVE;
 
     // Calculate scale to fit
     const scaleX = (stageW - padding * 2) / contentW;
@@ -474,14 +492,18 @@ export class WorkflowGraph {
   }
 
   _setSvgSize() {
-    this.edgesSvg.setAttribute("width", this.stage.clientWidth);
-    this.edgesSvg.setAttribute("height", this.stage.clientHeight);
-    this.edgesSvg.setAttribute("viewBox", `0 0 ${this.stage.clientWidth} ${this.stage.clientHeight}`);
+    const w = this.stage.clientWidth;
+    const h = this.stage.clientHeight;
+    this.edgesSvg.style.width = "100%";
+    this.edgesSvg.style.height = "100%";
+    this.edgesSvg.removeAttribute("width");
+    this.edgesSvg.removeAttribute("height");
+    this.edgesSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   }
 
   _drawEdges() {
     this._setSvgSize();
-    this.edgesSvg.innerHTML = "";
+    this.edgesGroup.innerHTML = "";
 
     const mk = (tag) => document.createElementNS("http://www.w3.org/2000/svg", tag);
 
@@ -496,9 +518,9 @@ export class WorkflowGraph {
       const y2 = p2.y;
 
       const c1x = x1;
-      const c1y = y1 + 80;
+      const c1y = y1 + this.EDGE_CURVE;
       const c2x = x2;
-      const c2y = y2 - 80;
+      const c2y = y2 - this.EDGE_CURVE;
 
       const path = mk("path");
       path.setAttribute("d", `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`);
@@ -507,7 +529,7 @@ export class WorkflowGraph {
       path.setAttribute("stroke-width", this.EDGE_W);
       path.setAttribute("stroke-linecap", "round");
       path.setAttribute("stroke-linejoin", "round");
-      this.edgesSvg.appendChild(path);
+      this.edgesGroup.appendChild(path);
 
       const s = mk("circle");
       s.setAttribute("cx", x1);
@@ -516,14 +538,14 @@ export class WorkflowGraph {
       s.setAttribute("fill", "#f7f7f7");
       s.setAttribute("stroke", "#111");
       s.setAttribute("stroke-width", "4");
-      this.edgesSvg.appendChild(s);
+      this.edgesGroup.appendChild(s);
 
       const t = mk("circle");
       t.setAttribute("cx", x2);
       t.setAttribute("cy", y2);
       t.setAttribute("r", "8");
       t.setAttribute("fill", "#111");
-      this.edgesSvg.appendChild(t);
+      this.edgesGroup.appendChild(t);
     }
   }
 
